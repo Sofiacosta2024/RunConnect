@@ -1,16 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const callbackURL = searchParams.get("next") ?? "/";
+
   const onContinueWithGoogle = async () => {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/",
+      callbackURL,
     });
   };
+
+  const loginHref = callbackURL === "/"
+    ? "/login"
+    : `/login?next=${encodeURIComponent(callbackURL)}`;
 
   return (
     <div className="flex flex-1 items-center justify-center bg-background px-6 text-foreground">
@@ -36,7 +44,7 @@ export default function RegisterPage() {
           ¿Ya tenés cuenta?{" "}
           <Link
             className="font-medium underline"
-            href="/login"
+            href={loginHref}
           >
             Iniciá sesión
           </Link>
