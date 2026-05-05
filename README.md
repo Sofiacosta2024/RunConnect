@@ -1,29 +1,43 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Auth (Better Auth + Google OAuth + Postgres)
+## Auth (Better Auth + Google OAuth + Neon PostgreSQL)
 
 This project is configured to **sign up / sign in exclusively via Google OAuth** (no email/password).
 
 1. Create a local env file:
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-2. Configure Google OAuth:
+2. Configure environment variables:
+
+- `DATABASE_URL` from Neon
+- `BETTER_AUTH_URL` for your local or deployed URL
+- `BETTER_AUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+3. Configure Google OAuth:
 
 - Authorized redirect URI (local): `http://localhost:3000/api/auth/callback/google`
 
-3. Run Better Auth migrations (creates required tables in Postgres):
+4. Run Better Auth migrations (creates required tables in Neon PostgreSQL):
 
 ```bash
 npx auth@latest migrate
 ```
 
-4. Start the dev server and visit:
+5. Start the dev server and visit:
 
 - `http://localhost:3000/login`
 - `http://localhost:3000/registro`
+
+## Environment Notes
+
+This project uses a root-level `.env` file for local development. The file is ignored by Git so your Neon connection string and auth secrets stay local.
+
+If you deploy to Vercel, set the same variables in the Vercel dashboard, including `BETTER_AUTH_URL=https://your-domain.vercel.app`.
 
 ## Getting Started
 
