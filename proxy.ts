@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getAuth } from "@/lib/auth";
+import { getServerSession } from "@/lib/auth-server";
 
 const publicPaths = new Set(["/login", "/registro"]);
 const publicPrefixes = ["/api/auth", "/_next", "/favicon.ico"];
@@ -18,9 +18,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = await getAuth().api.getSession({
-    headers: request.headers,
-  });
+  const session = await getServerSession(request.headers);
 
   if (session) {
     return NextResponse.next();
