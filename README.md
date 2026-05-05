@@ -1,5 +1,30 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Auth (Better Auth + Google OAuth + Postgres)
+
+This project is configured to **sign up / sign in exclusively via Google OAuth** (no email/password).
+
+1. Create a local env file:
+
+```bash
+cp .env.example .env.local
+```
+
+2. Configure Google OAuth:
+
+- Authorized redirect URI (local): `http://localhost:3000/api/auth/callback/google`
+
+3. Run Better Auth migrations (creates required tables in Postgres):
+
+```bash
+npx auth@latest migrate
+```
+
+4. Start the dev server and visit:
+
+- `http://localhost:3000/login`
+- `http://localhost:3000/registro`
+
 ## Getting Started
 
 First, run the development server:
