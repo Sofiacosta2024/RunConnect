@@ -673,60 +673,6 @@ export default function RunConnectPage() {
             ))}
           </div>
         </main>
-
-        {/* SIDEBAR */}
-        <aside className="rc-sidebar">
-          {/* Desafío activo */}
-          <div className="rc-sidebar-card">
-            <div className="rc-sidebar-title">⚡ DESAFÍO MAYO</div>
-            <div className="rc-challenge">
-              <div className="rc-challenge-title">200 km en mayo</div>
-              <div className="rc-challenge-sub">847 corredores participando</div>
-              <div className="rc-progress-bar">
-                <div className="rc-progress-fill" style={{ width: "61%" }} />
-              </div>
-              <div className="rc-progress-label"><span>122 km completados</span><span>61%</span></div>
-            </div>
-            <button className="rc-btn-primary" style={{ width: "100%", marginTop: 8 }}>Unirme al desafío</button>
-          </div>
-
-          {/* Ranking semanal */}
-          <div className="rc-sidebar-card">
-            <div className="rc-sidebar-title">🏆 TOP SEMANA</div>
-            {[
-              { name: "Lucas F.", km: "78.4 km", rank: "1", rankClass: "gold" },
-              { name: "Valentina R.", km: "65.2 km", rank: "2", rankClass: "silver" },
-              { name: "Agustín M.", km: "59.8 km", rank: "3", rankClass: "bronze" },
-              { name: "María L.", km: "51.1 km", rank: "4", rankClass: "" },
-            ].map((r) => (
-              <div className="rc-runner-row" key={r.name}>
-                <div className={`rc-rank ${r.rankClass}`}>{r.rank}</div>
-                <div className="rc-runner-info">
-                  <div className="rc-runner-name">{r.name}</div>
-                  <div className="rc-runner-km">{r.km}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Rutas populares */}
-          <div className="rc-sidebar-card">
-            <div className="rc-sidebar-title">📍 RUTAS POPULARES</div>
-            {[
-              { name: "Bosques de Palermo", dist: "6.2 km", runs: "1.2k salidas" },
-              { name: "Costanera Norte", dist: "8.5 km", runs: "980 salidas" },
-              { name: "Parque Centenario", dist: "3.8 km", runs: "760 salidas" },
-            ].map((r) => (
-              <div className="rc-runner-row" key={r.name}>
-                <div style={{ fontSize: 20 }}>🗺️</div>
-                <div className="rc-runner-info">
-                  <div className="rc-runner-name">{r.name}</div>
-                  <div className="rc-runner-km">{r.dist} · {r.runs}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
       </div>
 
       {/* FOOTER */}
