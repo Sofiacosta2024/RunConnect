@@ -23,7 +23,6 @@ export const nivelEntrenamiento = pgTable("NIVEL_ENTRENAMIENTO", {
 export const usuario = pgTable("USUARIO", {
 	email: text("email").primaryKey(),
 	nombre: text("nombre").notNull(),
-	contrasena: text("contrasena").notNull(),
 	fotoPerfil: text("foto_perfil"),
 	ubicacion: text("ubicacion"),
 	codigoDeporte: text("codigo_deporte").references(() => deporte.nombre),
