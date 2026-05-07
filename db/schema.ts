@@ -85,8 +85,9 @@ export const calificacion = pgTable("CALIFICACION", {
 	comentario: text("comentario"),
 });
 
-/*
+// TODO: Corregir referencia circular entre SOLICITUD y ESTADO_SOLICITUD
 
+/*
 export const solicitud = pgTable("SOLICITUD", {
 	codigoSolicitud: serial("codigo_solicitud").primaryKey(),
 	email: text("email").notNull().references(() => usuario.email),
