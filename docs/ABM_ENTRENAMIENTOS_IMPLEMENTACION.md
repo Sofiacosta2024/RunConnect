@@ -44,7 +44,7 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 Reglas aplicadas en la capa de servicio (Postgres y SQLite):
 
 - `fecha_inicio` debe ser posterior a la fecha y hora actual.
-- `fecha_fin` debe ser posterior a `fecha_inicio`.
+- `fecha_fin` debe ser igual o posterior a `fecha_inicio` (si no se envia, se asume igual a inicio).
 - Si existe `fecha_limite_inscripcion`, debe ser > ahora y <= `fecha_inicio`.
 
 Interpretacion de zonas horarias:
@@ -59,12 +59,16 @@ Se aceptan dos formas de definir el inicio:
 1. `fecha` + `hora` (compatibilidad actual)
 2. `fecha_inicio` (ISO 8601)
 
-`fecha_fin` es obligatoria para crear/actualizar.
+`fecha_fin` es opcional; si no se envia, se toma igual a `fecha_inicio`.
+------------------>REVISAR ESTO DE FECHA FIN: ¿QUE SENTIDO TENDRÍA QUE SEA "OPCIONAL"? <-------------------------------------------------------
+¿Hay alguna razón por la que el entrenamiento podria durar más de un dia entre fechas? 
+La idea sería que fecha_fin sirva para limpiar los entrenamientos ya concluidos del mapa. Hay alguna razon mas por la que la necesitemos? 
+Si no es así, entonces la lógica de fecha_inicio + horario_inicio sirve para limpiarlo del mapa
 
 Campos aceptados (snake o camel case):
 
 - `fecha_inicio` / `fechaInicio` (opcional si se envia `fecha` + `hora`)
-- `fecha_fin` / `fechaFin` (obligatoria)
+- `fecha_fin` / `fechaFin` (obligatoria)(????)
 - `fecha_limite_inscripcion` / `fechaLimiteInscripcion` (opcional)
 
 Ejemplo de POST:

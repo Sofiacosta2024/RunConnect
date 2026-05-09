@@ -198,15 +198,10 @@ function validateInput(input: EntrenamientoInput) {
   }
 
   const fechaFin = input.fechaFin?.trim() ?? "";
+  const end = fechaFin ? parseUtcDateTime(fechaFin, "fecha_fin") : start;
 
-  if (!fechaFin) {
-    throw new ValidationError("fecha_fin es obligatoria.");
-  }
-
-  const end = parseUtcDateTime(fechaFin, "fecha_fin");
-
-  if (end.getTime() <= start.getTime()) {
-    throw new ValidationError("fecha_fin debe ser posterior a fecha_inicio.");
+  if (end.getTime() < start.getTime()) {
+    throw new ValidationError("fecha_fin debe ser igual o posterior a fecha_inicio.");
   }
 
   const limiteRaw = input.fechaLimiteInscripcion;

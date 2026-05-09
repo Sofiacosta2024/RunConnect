@@ -124,6 +124,21 @@ await run("POST /api/entrenamientos (limite despues de inicio)", {
   },
 });
 
+await run("POST /api/entrenamientos (sin fecha_fin)", {
+  url: `${baseUrl}/api/entrenamientos`,
+  init: {
+    method: "POST",
+    headers: writeHeaders,
+    body: JSON.stringify({
+      codigoDeporte: "RUN",
+      fecha: startDate,
+      hora: startTime,
+      ubicacion: "POINT(-58.3816 -34.6037)",
+      codigoNivel: "INTERMEDIO",
+    }),
+  },
+});
+
 const createdId = postResult?.body?.data?.codigoEntrenamiento;
 
 if (createdId) {
