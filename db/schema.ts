@@ -57,19 +57,17 @@ export const entrenamiento = pgTable("ENTRENAMIENTO", {
 	cupoMaximo: integer("cupo_maximo"),
 });
 
-export const mensaje = pgTable(
-	"MENSAJE",
-	{
-		fecha: date("fecha").notNull(),
-		hora: time("hora").notNull(),
-		codigoEntrenamiento: integer("codigo_entrenamiento")
-			.notNull()
-			.references(() => entrenamiento.codigoEntrenamiento),
-		email: text("email").notNull().references(() => usuario.email),
-		contenido: text("contenido").notNull(),
-	},
-	(table) => [primaryKey({ columns: [table.fecha, table.hora] })]
-);
+export const mensaje = pgTable("MENSAJE", {
+  idMensaje: serial("id_mensaje").notNull(),
+  codigoEntrenamiento: integer("codigo_entrenamiento")
+    .notNull()
+    .references(() => entrenamiento.codigoEntrenamiento),
+  email: text("email").notNull().references(() => usuario.email),
+  contenido: text("contenido").notNull(),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.idMensaje, table.codigoEntrenamiento] })
+]);
 
 export const calificacion = pgTable("CALIFICACION", {
 	codigoCalificacion: serial("codigo_calificacion").primaryKey(),
