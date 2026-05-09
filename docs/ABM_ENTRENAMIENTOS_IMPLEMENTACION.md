@@ -9,6 +9,7 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Se creo un selector que elige el servicio segun `DB_MODE`.
 - Se agrego un bypass de auth local para organizar pruebas con `x-organizer-id` o `LOCAL_ORGANIZER_ID`.
 - Se ajusto el script de smoke test para usar el id creado y evitar 404 en PUT/DELETE.
+- Se agrego validacion temporal para fechas de entrenamientos (UTC).
 
 ## Archivos modificados o nuevos
 
@@ -36,6 +37,68 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 
 - `scripts/test-entrenamientos.mjs`
   - Usa el id devuelto por el POST para PUT/DELETE. Evita ids fijos obsoletos.
+  - Incluye casos de validacion temporal (fechas invalidas).
+
+## Validacion temporal (UTC)
+
+Reglas aplicadas en la capa de servicio (Postgres y SQLite):
+
+- `fecha_inicio` debe ser posterior a la fecha y hora actual.
+- `fecha_fin` debe ser posterior a `fecha_inicio`.
+- Si existe `fecha_limite_inscripcion`, debe ser > ahora y <= `fecha_inicio`.
+
+Interpretacion de zonas horarias:
+
+- Si el valor no trae zona horaria, se asume UTC.
+- Se recomienda enviar ISO 8601 con offset (ej: `2026-05-10T18:30:00-03:00`).
+
+## Formato de request (frontend)
+
+Se aceptan dos formas de definir el inicio:
+
+1. `fecha` + `hora` (compatibilidad actual)
+2. `fecha_inicio` (ISO 8601)
+
+`fecha_fin` es obligatoria para crear/actualizar.
+
+Campos aceptados (snake o camel case):
+
+- `fecha_inicio` / `fechaInicio` (opcional si se envia `fecha` + `hora`)
+- `fecha_fin` / `fechaFin` (obligatoria)
+- `fecha_limite_inscripcion` / `fechaLimiteInscripcion` (opcional)
+
+Ejemplo de POST:
+
+```json
+{
+  "codigoDeporte": "RUN",
+  "fecha": "2026-05-10",
+  "hora": "18:30:00",
+  "fecha_fin": "2026-05-10T20:30:00Z",
+  "fecha_limite_inscripcion": "2026-05-10T16:00:00Z",
+  "ubicacion": "POINT(-58.3816 -34.6037)",
+  "codigoNivel": "INTERMEDIO",
+  "cupoMaximo": 20
+}
+```
+
+Nota: por ahora `fecha_fin` y `fecha_limite_inscripcion` solo se usan para validacion.
+No se persisten en la tabla de entrenamientos (aun no hay columnas para eso).
+
+## Respuesta de error (400)
+
+Ejemplo cuando `fecha_fin` es invalida:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "fecha_fin debe ser posterior a fecha_inicio.",
+    "details": null
+  }
+}
+```
 
 ## Como funciona el modo local
 
@@ -47,6 +110,7 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Flujo:
   - El selector en `services/entrenamientoService.ts` carga SQLite.
   - `lib/organizer-auth.ts` evita sesiones y usa id local.
+  - `proxy.ts` permite acceder a `/api/*` sin sesion cuando `DB_MODE=sqlite`.
   - Se usa WKT plano en `punto_de_encuentro` (sin PostGIS).
 
 ## Comandos para pruebas locales

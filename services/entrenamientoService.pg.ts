@@ -32,6 +32,9 @@ export type EntrenamientoInput = {
   codigoDeporte: string;
   fecha: string;
   hora: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  fechaLimiteInscripcion?: string | null;
   ubicacion: LocationInput;
   distanciaEstimada?: number | null;
   ritmoObjetivo?: string | null;
@@ -91,6 +94,68 @@ function isValidTime(value: string) {
   return /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value);
 }
 
+function normalizeIsoDateTime(value: string) {
+  const trimmed = value.trim();
+  const withT = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(withT)) {
+    return `${withT}T00:00:00Z`;
+  }
+
+  const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(withT);
+  return hasTimezone ? withT : `${withT}Z`;
+}
+
+function parseUtcDateTime(value: string, fieldName: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new ValidationError(`${fieldName} es obligatoria.`);
+  }
+
+  const parsed = new Date(normalizeIsoDateTime(trimmed));
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ValidationError(`${fieldName} debe tener formato ISO 8601 valido.`);
+  }
+
+  return parsed;
+}
+
+function resolveStartDate(input: EntrenamientoInput) {
+  const hasFecha = Boolean(input.fecha?.trim());
+  const hasHora = Boolean(input.hora?.trim());
+
+  if (hasFecha || hasHora) {
+    if (!hasFecha) {
+      throw new ValidationError("fecha es obligatoria.");
+    }
+
+    if (!hasHora) {
+      throw new ValidationError("hora es obligatoria.");
+    }
+
+    if (!isValidDate(input.fecha)) {
+      throw new ValidationError("fecha debe tener formato YYYY-MM-DD y ser valida.");
+    }
+
+    if (!isValidTime(input.hora)) {
+      throw new ValidationError("hora debe tener formato HH:MM o HH:MM:SS y ser valida.");
+    }
+
+    const start = parseUtcDateTime(`${input.fecha}T${input.hora}`, "fecha_inicio");
+    return { start, fechaDb: input.fecha, horaDb: input.hora };
+  }
+
+  if (input.fechaInicio?.trim()) {
+    const start = parseUtcDateTime(input.fechaInicio, "fecha_inicio");
+    const iso = start.toISOString();
+    return { start, fechaDb: iso.slice(0, 10), horaDb: iso.slice(11, 19) };
+  }
+
+  throw new ValidationError("fecha_inicio es obligatoria.");
+}
+
 function normalizeLocation(ubicacion: LocationInput) {
   if (typeof ubicacion === "string") {
     const trimmed = ubicacion.trim();
@@ -121,12 +186,41 @@ function validateInput(input: EntrenamientoInput) {
     throw new ValidationError("codigoNivel es obligatorio.");
   }
 
-  if (!isValidDate(input.fecha)) {
-    throw new ValidationError("fecha debe tener formato YYYY-MM-DD y ser valida.");
+  const { start, fechaDb, horaDb } = resolveStartDate(input);
+  const now = new Date();
+
+  if (start.getTime() <= now.getTime()) {
+    throw new ValidationError("fecha_inicio debe ser posterior a la fecha y hora actual.");
   }
 
-  if (!isValidTime(input.hora)) {
-    throw new ValidationError("hora debe tener formato HH:MM o HH:MM:SS y ser valida.");
+  const fechaFin = input.fechaFin?.trim() ?? "";
+
+  if (!fechaFin) {
+    throw new ValidationError("fecha_fin es obligatoria.");
+  }
+
+  const end = parseUtcDateTime(fechaFin, "fecha_fin");
+
+  if (end.getTime() <= start.getTime()) {
+    throw new ValidationError("fecha_fin debe ser posterior a fecha_inicio.");
+  }
+
+  const limiteRaw = input.fechaLimiteInscripcion;
+
+  if (limiteRaw !== undefined && limiteRaw !== null && String(limiteRaw).trim()) {
+    const limite = parseUtcDateTime(String(limiteRaw), "fecha_limite_inscripcion");
+
+    if (limite.getTime() <= now.getTime()) {
+      throw new ValidationError(
+        "fecha_limite_inscripcion debe ser posterior a la fecha y hora actual."
+      );
+    }
+
+    if (limite.getTime() > start.getTime()) {
+      throw new ValidationError(
+        "fecha_limite_inscripcion debe ser anterior o igual a fecha_inicio."
+      );
+    }
   }
 
   if (input.cupoMaximo !== undefined && input.cupoMaximo !== null) {
@@ -144,6 +238,8 @@ function validateInput(input: EntrenamientoInput) {
       throw new ValidationError("distanciaEstimada debe ser un numero positivo.");
     }
   }
+
+  return { fechaDb, horaDb };
 }
 
 function isDatabaseError(error: unknown) {
@@ -236,7 +332,7 @@ export async function create(idOrganizador: number, input: EntrenamientoInput) {
     throw new ValidationError("idOrganizador debe ser un entero positivo.");
   }
 
-  validateInput(input);
+  const { fechaDb, horaDb } = validateInput(input);
 
   const ubicacion = normalizeLocation(input.ubicacion);
 
@@ -255,8 +351,8 @@ export async function create(idOrganizador: number, input: EntrenamientoInput) {
       ) VALUES (
         ${idOrganizador},
         ${input.codigoDeporte.trim()},
-        ${input.fecha}::date,
-        ${input.hora}::time,
+        ${fechaDb}::date,
+        ${horaDb}::time,
         ST_GeogFromText(${ubicacion}),
         ${input.distanciaEstimada ?? null},
         ${input.ritmoObjetivo?.trim() ?? null},
@@ -278,7 +374,7 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");
   }
 
-  validateInput(input);
+  const { fechaDb, horaDb } = validateInput(input);
 
   const ubicacion = normalizeLocation(input.ubicacion);
 
@@ -286,8 +382,8 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
     const updateResult = await db.execute(sql`
       UPDATE "ENTRENAMIENTO" SET
         codigo_deporte = ${input.codigoDeporte.trim()},
-        fecha = ${input.fecha}::date,
-        hora = ${input.hora}::time,
+        fecha = ${fechaDb}::date,
+        hora = ${horaDb}::time,
         punto_de_encuentro = ST_GeogFromText(${ubicacion}),
         distancia_estimada = ${input.distanciaEstimada ?? null},
         ritmo_objetivo = ${input.ritmoObjetivo?.trim() ?? null},

@@ -38,11 +38,21 @@ export async function POST(request: Request) {
   try {
     const organizerId = await getAuthenticatedOrganizerId(request.headers);
     const body = await readJsonBody(request);
+    const fechaInicio = body.fechaInicio ?? body.fecha_inicio;
+    const fechaFin = body.fechaFin ?? body.fecha_fin;
+    const fechaLimiteInscripcion = body.fechaLimiteInscripcion ?? body.fecha_limite_inscripcion;
 
     const entrenamiento = await create(organizerId, {
       codigoDeporte: String(body.codigoDeporte ?? ""),
       fecha: String(body.fecha ?? ""),
       hora: String(body.hora ?? ""),
+      fechaInicio:
+        fechaInicio === undefined || fechaInicio === null ? undefined : String(fechaInicio),
+      fechaFin: fechaFin === undefined || fechaFin === null ? undefined : String(fechaFin),
+      fechaLimiteInscripcion:
+        fechaLimiteInscripcion === undefined || fechaLimiteInscripcion === null
+          ? null
+          : String(fechaLimiteInscripcion),
       ubicacion: parseBodyLocation(body) ?? "",
       distanciaEstimada:
         body.distanciaEstimada === undefined || body.distanciaEstimada === null
