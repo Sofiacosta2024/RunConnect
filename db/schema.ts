@@ -1,7 +1,9 @@
 import {
+	customType,
 	date,
 	integer,
 	numeric,
+	pgEnum,
 	pgTable,
 	primaryKey,
 	serial,
@@ -9,6 +11,19 @@ import {
 	time,
 	timestamp,
 } from "drizzle-orm/pg-core";
+
+const geographyPoint = customType<{ data: string }>({
+	dataType() {
+		return "geography(Point,4326)";
+	},
+});
+
+export const entrenamientoEstado = pgEnum("entrenamiento_estado", [
+	"abierto",
+	"cerrado",
+	"cancelado",
+	"finalizado",
+]);
 
 export const deporte = pgTable("DEPORTE", {
 	nombre: text("nombre").primaryKey(),
@@ -41,9 +56,13 @@ export const entrenamiento = pgTable("ENTRENAMIENTO", {
 	codigoDeporte: text("codigo_deporte")
 		.notNull()
 		.references(() => deporte.nombre),
-	fecha: date("fecha").notNull(),
-	hora: time("hora").notNull(),
-	puntoEncuentro: text("punto_de_encuentro").notNull(),
+	fechaInicio: timestamp("fecha_inicio", { withTimezone: true }).notNull(),
+	fechaFin: timestamp("fecha_fin", { withTimezone: true }).notNull(),
+	fechaLimiteInscripcion: timestamp("fecha_limite_inscripcion", {
+		withTimezone: true,
+	}),
+	estado: entrenamientoEstado("estado").notNull().default("abierto"),
+	puntoEncuentro: geographyPoint("punto_de_encuentro").notNull(),
 	distanciaEstimada: numeric("distancia_estimada", { precision: 6, scale: 2 }),
 	ritmoObjetivo: text("ritmo_objetivo"),
 	codigoNivel: text("codigo_nivel")

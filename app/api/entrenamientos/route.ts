@@ -44,15 +44,14 @@ export async function POST(request: Request) {
 
     const entrenamiento = await create(organizerId, {
       codigoDeporte: String(body.codigoDeporte ?? ""),
-      fecha: String(body.fecha ?? ""),
-      hora: String(body.hora ?? ""),
       fechaInicio:
-        fechaInicio === undefined || fechaInicio === null ? undefined : String(fechaInicio),
-      fechaFin: fechaFin === undefined || fechaFin === null ? undefined : String(fechaFin),
+        fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
+      fechaFin: fechaFin === undefined || fechaFin === null ? "" : String(fechaFin),
       fechaLimiteInscripcion:
         fechaLimiteInscripcion === undefined || fechaLimiteInscripcion === null
           ? null
           : String(fechaLimiteInscripcion),
+      estado: String(body.estado ?? ""),
       ubicacion: parseBodyLocation(body) ?? "",
       distanciaEstimada:
         body.distanciaEstimada === undefined || body.distanciaEstimada === null

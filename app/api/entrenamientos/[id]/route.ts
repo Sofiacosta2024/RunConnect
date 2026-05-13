@@ -79,15 +79,14 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     const entrenamiento = await update(codigoEntrenamiento, {
       codigoDeporte: String(body.codigoDeporte ?? ""),
-      fecha: String(body.fecha ?? ""),
-      hora: String(body.hora ?? ""),
       fechaInicio:
-        fechaInicio === undefined || fechaInicio === null ? undefined : String(fechaInicio),
-      fechaFin: fechaFin === undefined || fechaFin === null ? undefined : String(fechaFin),
+        fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
+      fechaFin: fechaFin === undefined || fechaFin === null ? "" : String(fechaFin),
       fechaLimiteInscripcion:
         fechaLimiteInscripcion === undefined || fechaLimiteInscripcion === null
           ? null
           : String(fechaLimiteInscripcion),
+      estado: String(body.estado ?? ""),
       ubicacion: parseBodyLocation(body) ?? "",
       distanciaEstimada:
         body.distanciaEstimada === undefined || body.distanciaEstimada === null

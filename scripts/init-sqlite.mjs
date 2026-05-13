@@ -37,8 +37,10 @@ try {
       codigo_entrenamiento INTEGER PRIMARY KEY AUTOINCREMENT,
       id_organizador INTEGER NOT NULL,
       codigo_deporte TEXT NOT NULL,
-      fecha TEXT NOT NULL,
-      hora TEXT NOT NULL,
+      fecha_inicio TEXT NOT NULL,
+      fecha_fin TEXT NOT NULL,
+      fecha_limite_inscripcion TEXT,
+      estado TEXT NOT NULL DEFAULT 'abierto',
       punto_de_encuentro TEXT NOT NULL,
       distancia_estimada REAL,
       ritmo_objetivo TEXT,
@@ -85,21 +87,25 @@ try {
       INSERT INTO "ENTRENAMIENTO" (
         id_organizador,
         codigo_deporte,
-        fecha,
-        hora,
+        fecha_inicio,
+        fecha_fin,
+        fecha_limite_inscripcion,
+        estado,
         punto_de_encuentro,
         distancia_estimada,
         ritmo_objetivo,
         codigo_nivel,
         cupo_maximo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insertEntrenamiento.run(
       1,
       "RUN",
-      "2026-05-08",
-      "18:30:00",
+      "2026-05-08T18:30:00Z",
+      "2026-05-08T20:30:00Z",
+      "2026-05-08T16:00:00Z",
+      "abierto",
       "POINT(-58.3816 -34.6037)",
       5.0,
       "5:30/km",

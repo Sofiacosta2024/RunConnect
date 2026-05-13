@@ -2,6 +2,7 @@ import "server-only";
 
 import { DatabaseUnavailableError, NotFoundError, ValidationError } from "@/lib/api-errors";
 import { getSqliteDb } from "@/lib/sqlite";
+import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
 
 type LocationInput =
   | string
@@ -17,8 +18,10 @@ export type EntrenamientoListItem = {
   idOrganizador: number;
   codigoDeporte: string;
   descripcionDeporte: string | null;
-  fecha: string;
-  hora: string;
+  fechaInicio: string;
+  fechaFin: string;
+  fechaLimiteInscripcion: string | null;
+  estado: string;
   ubicacion: string | null;
   distanciaEstimada: number | null;
   ritmoObjetivo: string | null;
@@ -29,11 +32,10 @@ export type EntrenamientoListItem = {
 
 export type EntrenamientoInput = {
   codigoDeporte: string;
-  fecha: string;
-  hora: string;
-  fechaInicio?: string;
-  fechaFin?: string;
+  fechaInicio: string;
+  fechaFin: string;
   fechaLimiteInscripcion?: string | null;
+  estado: string;
   ubicacion: LocationInput;
   distanciaEstimada?: number | null;
   ritmoObjetivo?: string | null;
@@ -46,8 +48,10 @@ type EntrenamientoRow = {
   idOrganizador: number;
   codigoDeporte: string;
   descripcionDeporte: string | null;
-  fecha: string;
-  hora: string;
+  fechaInicio: string;
+  fechaFin: string;
+  fechaLimiteInscripcion: string | null;
+  estado: string;
   ubicacion: string | null;
   distanciaEstimada: number | null;
   ritmoObjetivo: string | null;
@@ -70,8 +74,10 @@ function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
     idOrganizador: Number(row.idOrganizador),
     codigoDeporte: row.codigoDeporte,
     descripcionDeporte: row.descripcionDeporte,
-    fecha: row.fecha,
-    hora: row.hora,
+    fechaInicio: row.fechaInicio,
+    fechaFin: row.fechaFin,
+    fechaLimiteInscripcion: row.fechaLimiteInscripcion,
+    estado: row.estado,
     ubicacion: row.ubicacion,
     distanciaEstimada: toNumberOrNull(row.distanciaEstimada),
     ritmoObjetivo: row.ritmoObjetivo,
@@ -85,74 +91,27 @@ function isFinitePositiveInteger(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
-function isValidDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
-}
+const entrenamientoEstados = new Set([
+  "abierto",
+  "cerrado",
+  "cancelado",
+  "finalizado",
+]);
 
-function isValidTime(value: string) {
-  return /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value);
-}
+function resolveEstado(estado: string) {
+  const normalized = estado.trim().toLowerCase();
 
-function normalizeIsoDateTime(value: string) {
-  const trimmed = value.trim();
-  const withT = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(withT)) {
-    return `${withT}T00:00:00Z`;
+  if (!normalized) {
+    throw new ValidationError("estado es obligatorio.");
   }
 
-  const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(withT);
-  return hasTimezone ? withT : `${withT}Z`;
-}
-
-function parseUtcDateTime(value: string, fieldName: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    throw new ValidationError(`${fieldName} es obligatoria.`);
+  if (!entrenamientoEstados.has(normalized)) {
+    throw new ValidationError(
+      "estado debe ser uno de: abierto, cerrado, cancelado, finalizado."
+    );
   }
 
-  const parsed = new Date(normalizeIsoDateTime(trimmed));
-
-  if (Number.isNaN(parsed.getTime())) {
-    throw new ValidationError(`${fieldName} debe tener formato ISO 8601 valido.`);
-  }
-
-  return parsed;
-}
-
-function resolveStartDate(input: EntrenamientoInput) {
-  const hasFecha = Boolean(input.fecha?.trim());
-  const hasHora = Boolean(input.hora?.trim());
-
-  if (hasFecha || hasHora) {
-    if (!hasFecha) {
-      throw new ValidationError("fecha es obligatoria.");
-    }
-
-    if (!hasHora) {
-      throw new ValidationError("hora es obligatoria.");
-    }
-
-    if (!isValidDate(input.fecha)) {
-      throw new ValidationError("fecha debe tener formato YYYY-MM-DD y ser valida.");
-    }
-
-    if (!isValidTime(input.hora)) {
-      throw new ValidationError("hora debe tener formato HH:MM o HH:MM:SS y ser valida.");
-    }
-
-    const start = parseUtcDateTime(`${input.fecha}T${input.hora}`, "fecha_inicio");
-    return { start, fechaDb: input.fecha, horaDb: input.hora };
-  }
-
-  if (input.fechaInicio?.trim()) {
-    const start = parseUtcDateTime(input.fechaInicio, "fecha_inicio");
-    const iso = start.toISOString();
-    return { start, fechaDb: iso.slice(0, 10), horaDb: iso.slice(11, 19) };
-  }
-
-  throw new ValidationError("fecha_inicio es obligatoria.");
+  return normalized;
 }
 
 function normalizeLocation(ubicacion: LocationInput) {
@@ -190,37 +149,32 @@ function validateInput(input: EntrenamientoInput) {
     throw new ValidationError("codigoNivel es obligatorio.");
   }
 
-  const { start, fechaDb, horaDb } = resolveStartDate(input);
-  const now = new Date();
+  const fechaInicioRaw = input.fechaInicio?.trim();
+  const fechaFinRaw = input.fechaFin?.trim();
 
-  if (start.getTime() <= now.getTime()) {
-    throw new ValidationError("fecha_inicio debe ser posterior a la fecha y hora actual.");
+  if (!fechaInicioRaw) {
+    throw new ValidationError("fecha_inicio es obligatoria.");
   }
 
-  const fechaFin = input.fechaFin?.trim() ?? "";
-  const end = fechaFin ? parseUtcDateTime(fechaFin, "fecha_fin") : start;
-
-  if (end.getTime() < start.getTime()) {
-    throw new ValidationError("fecha_fin debe ser igual o posterior a fecha_inicio.");
+  if (!fechaFinRaw) {
+    throw new ValidationError("fecha_fin es obligatoria.");
   }
 
-  const limiteRaw = input.fechaLimiteInscripcion;
+  const fechasValidation = validarFechasEntrenamiento({
+    fechaInicio: fechaInicioRaw,
+    fechaFin: fechaFinRaw,
+    fechaLimiteInscripcion: input.fechaLimiteInscripcion ?? null,
+    now: new Date(),
+  });
 
-  if (limiteRaw !== undefined && limiteRaw !== null && String(limiteRaw).trim()) {
-    const limite = parseUtcDateTime(String(limiteRaw), "fecha_limite_inscripcion");
-
-    if (limite.getTime() <= now.getTime()) {
-      throw new ValidationError(
-        "fecha_limite_inscripcion debe ser posterior a la fecha y hora actual."
-      );
-    }
-
-    if (limite.getTime() > start.getTime()) {
-      throw new ValidationError(
-        "fecha_limite_inscripcion debe ser anterior o igual a fecha_inicio."
-      );
-    }
+  if (!fechasValidation.valido || !fechasValidation.fechas) {
+    throw new ValidationError(fechasValidation.error ?? "Fechas invalidas.");
   }
+
+  const { inicio, fin, limite } = fechasValidation.fechas;
+  const limiteDb = limite ? limite.toISOString() : null;
+
+  const estado = resolveEstado(input.estado);
 
   if (input.cupoMaximo !== undefined && input.cupoMaximo !== null) {
     if (!Number.isInteger(input.cupoMaximo) || input.cupoMaximo <= 0) {
@@ -238,7 +192,12 @@ function validateInput(input: EntrenamientoInput) {
     }
   }
 
-  return { fechaDb, horaDb };
+  return {
+    fechaInicioDb: inicio.toISOString(),
+    fechaFinDb: fin.toISOString(),
+    fechaLimiteInscripcionDb: limiteDb,
+    estado,
+  };
 }
 
 function throwDatabaseUnavailable(error: unknown, operation: string): never {
@@ -256,8 +215,10 @@ export async function getAll() {
           e.id_organizador AS idOrganizador,
           e.codigo_deporte AS codigoDeporte,
           d.descripcion_deporte AS descripcionDeporte,
-          e.fecha AS fecha,
-          e.hora AS hora,
+          e.fecha_inicio AS fechaInicio,
+          e.fecha_fin AS fechaFin,
+          e.fecha_limite_inscripcion AS fechaLimiteInscripcion,
+          e.estado AS estado,
           e.punto_de_encuentro AS ubicacion,
           e.distancia_estimada AS distanciaEstimada,
           e.ritmo_objetivo AS ritmoObjetivo,
@@ -267,7 +228,7 @@ export async function getAll() {
         FROM "ENTRENAMIENTO" e
         INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
         INNER JOIN "NIVEL_ENTRENAMIENTO" n ON n.nivel = e.codigo_nivel
-        ORDER BY e.fecha DESC, e.hora DESC, e.codigo_entrenamiento DESC
+        ORDER BY e.fecha_inicio DESC, e.codigo_entrenamiento DESC
       `
       )
       .all();
@@ -292,8 +253,10 @@ export async function getById(codigoEntrenamiento: number) {
           e.id_organizador AS idOrganizador,
           e.codigo_deporte AS codigoDeporte,
           d.descripcion_deporte AS descripcionDeporte,
-          e.fecha AS fecha,
-          e.hora AS hora,
+          e.fecha_inicio AS fechaInicio,
+          e.fecha_fin AS fechaFin,
+          e.fecha_limite_inscripcion AS fechaLimiteInscripcion,
+          e.estado AS estado,
           e.punto_de_encuentro AS ubicacion,
           e.distancia_estimada AS distanciaEstimada,
           e.ritmo_objetivo AS ritmoObjetivo,
@@ -320,7 +283,8 @@ export async function create(idOrganizador: number, input: EntrenamientoInput) {
     throw new ValidationError("idOrganizador debe ser un entero positivo.");
   }
 
-  const { fechaDb, horaDb } = validateInput(input);
+  const { fechaInicioDb, fechaFinDb, fechaLimiteInscripcionDb, estado } =
+    validateInput(input);
   const ubicacion = normalizeLocation(input.ubicacion);
 
   try {
@@ -330,21 +294,25 @@ export async function create(idOrganizador: number, input: EntrenamientoInput) {
         INSERT INTO "ENTRENAMIENTO" (
           id_organizador,
           codigo_deporte,
-          fecha,
-          hora,
+          fecha_inicio,
+          fecha_fin,
+          fecha_limite_inscripcion,
+          estado,
           punto_de_encuentro,
           distancia_estimada,
           ritmo_objetivo,
           codigo_nivel,
           cupo_maximo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       )
       .run(
         idOrganizador,
         input.codigoDeporte.trim(),
-        fechaDb,
-        horaDb,
+        fechaInicioDb,
+        fechaFinDb,
+        fechaLimiteInscripcionDb,
+        estado,
         ubicacion,
         input.distanciaEstimada ?? null,
         input.ritmoObjetivo?.trim() ?? null,
@@ -365,7 +333,8 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");
   }
 
-  const { fechaDb, horaDb } = validateInput(input);
+  const { fechaInicioDb, fechaFinDb, fechaLimiteInscripcionDb, estado } =
+    validateInput(input);
   const ubicacion = normalizeLocation(input.ubicacion);
 
   try {
@@ -374,8 +343,10 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
         `
         UPDATE "ENTRENAMIENTO" SET
           codigo_deporte = ?,
-          fecha = ?,
-          hora = ?,
+          fecha_inicio = ?,
+          fecha_fin = ?,
+          fecha_limite_inscripcion = ?,
+          estado = ?,
           punto_de_encuentro = ?,
           distancia_estimada = ?,
           ritmo_objetivo = ?,
@@ -386,8 +357,10 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
       )
       .run(
         input.codigoDeporte.trim(),
-        fechaDb,
-        horaDb,
+        fechaInicioDb,
+        fechaFinDb,
+        fechaLimiteInscripcionDb,
+        estado,
         ubicacion,
         input.distanciaEstimada ?? null,
         input.ritmoObjetivo?.trim() ?? null,

@@ -10,6 +10,14 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Se agrego un bypass de auth local para organizar pruebas con `x-organizer-id` o `LOCAL_ORGANIZER_ID`.
 - Se ajusto el script de smoke test para usar el id creado y evitar 404 en PUT/DELETE.
 - Se agrego validacion temporal para fechas de entrenamientos (UTC).
+- Se centralizo la validacion temporal en la funcion pura `validarFechasEntrenamiento`.
+- Se refactorizo el modelo de entrenamiento con timestamps y estado.
+IMPORTANTE: Estado en la tabla de entrenamiento, atributo no considerado en el modelo inicial, es de suma importancia, dado que sin este, no podríamos persistir la cancelación de un entrenamiento por parte del organizador. Además, este permite la finalización manual del entrenamiento: puede suceder que termine antes de lo previsto (datos cargados en el sistema), por lo que esta finalización manual activaría automáticamente las Calificaciones.
+A su vez, actúa como semáforo en las demás operaciones del sistema:
+- Con la tabla PARTICIPACIÓN: Solo se pueden insertar registros en PARTICIPACION si el entrenamiento tiene estado = 'abierto'.
+- Con la tabla MENSAJE: Podríamos definir que si el entrenamiento cambia a estado = 'finalizado', el chat se vuelve de "solo lectura" después de 24 horas.
+-Con la tabla CALIFICACIÓN: No se debería poder insertar una fila en CALIFICACION si el entrenamiento no está en estado = "finalizado".
+
 
 ## Archivos modificados o nuevos
 
@@ -43,8 +51,9 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 
 Reglas aplicadas en la capa de servicio (Postgres y SQLite):
 
-- `fecha_inicio` debe ser posterior a la fecha y hora actual.
-- `fecha_fin` debe ser igual o posterior a `fecha_inicio` (si no se envia, se asume igual a inicio).
+- `fecha_inicio` debe ser al menos 30 minutos posterior a la fecha y hora actual.
+- `fecha_fin` debe ser estrictamente posterior a `fecha_inicio`.
+- Duracion entre 15 minutos y 6 horas entre `fecha_inicio` y `fecha_fin`.
 - Si existe `fecha_limite_inscripcion`, debe ser > ahora y <= `fecha_inicio`.
 
 Interpretacion de zonas horarias:
@@ -54,51 +63,67 @@ Interpretacion de zonas horarias:
 
 ## Formato de request (frontend)
 
-Se aceptan dos formas de definir el inicio:
+Se acepta un unico formato temporal:
 
-1. `fecha` + `hora` (compatibilidad actual)
-2. `fecha_inicio` (ISO 8601)
-
-`fecha_fin` es opcional; si no se envia, se toma igual a `fecha_inicio`.
------------------->REVISAR ESTO DE FECHA FIN: ¿QUE SENTIDO TENDRÍA QUE SEA "OPCIONAL"? <-------------------------------------------------------
-¿Hay alguna razón por la que el entrenamiento podria durar más de un dia entre fechas? 
-La idea sería que fecha_fin sirva para limpiar los entrenamientos ya concluidos del mapa. Hay alguna razon mas por la que la necesitemos? 
-Si no es así, entonces la lógica de fecha_inicio + horario_inicio sirve para limpiarlo del mapa
+- `fecha_inicio` (ISO 8601, con timezone o UTC)
+- `fecha_fin` (ISO 8601, con timezone o UTC)
 
 Campos aceptados (snake o camel case):
 
-- `fecha_inicio` / `fechaInicio` (opcional si se envia `fecha` + `hora`)
-- `fecha_fin` / `fechaFin` (obligatoria)(????)
+- `fecha_inicio` / `fechaInicio` (obligatoria)
+- `fecha_fin` / `fechaFin` (obligatoria)
 - `fecha_limite_inscripcion` / `fechaLimiteInscripcion` (opcional)
+- `estado` (obligatorio: abierto, cerrado, cancelado, finalizado)
 
 Ejemplo de POST:
 
 ```json
 {
   "codigoDeporte": "RUN",
-  "fecha": "2026-05-10",
-  "hora": "18:30:00",
-  "fecha_fin": "2026-05-10T20:30:00Z",
+  "fecha_inicio": "2026-05-10T18:30:00-03:00",
+  "fecha_fin": "2026-05-10T20:30:00-03:00",
   "fecha_limite_inscripcion": "2026-05-10T16:00:00Z",
   "ubicacion": "POINT(-58.3816 -34.6037)",
   "codigoNivel": "INTERMEDIO",
-  "cupoMaximo": 20
+  "cupoMaximo": 20,
+  "estado": "abierto"
 }
 ```
 
-Nota: por ahora `fecha_fin` y `fecha_limite_inscripcion` solo se usan para validacion.
-No se persisten en la tabla de entrenamientos (aun no hay columnas para eso).
+Nota: `fecha_inicio`, `fecha_fin`, `fecha_limite_inscripcion` y `estado` ya forman parte del esquema.
+
+## Validacion centralizada en backend
+
+La validacion temporal se concentra en una funcion pura reutilizable:
+
+```ts
+import { ValidationError } from "@/lib/api-errors";
+import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
+
+const resultado = validarFechasEntrenamiento({
+  fechaInicio: String(body.fecha_inicio ?? body.fechaInicio ?? ""),
+  fechaFin: String(body.fecha_fin ?? body.fechaFin ?? ""),
+  fechaLimiteInscripcion: body.fecha_limite_inscripcion ?? body.fechaLimiteInscripcion ?? null,
+  now: new Date(),
+});
+
+if (!resultado.valido) {
+  throw new ValidationError(resultado.error ?? "Fechas invalidas.");
+}
+```
+
+Esta funcion se usa en los servicios de entrenamientos antes de insertar o actualizar registros, garantizando respuestas 400 con mensajes claros ante cualquier inconsistencia temporal.
 
 ## Respuesta de error (400)
 
-Ejemplo cuando `fecha_fin` es invalida:
+Ejemplo cuando `fecha_inicio` es demasiado cercana:
 
 ```json
 {
   "ok": false,
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "fecha_fin debe ser posterior a fecha_inicio.",
+    "message": "fecha_inicio debe ser al menos 30 minutos posterior al momento actual.",
     "details": null
   }
 }
