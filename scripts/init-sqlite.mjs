@@ -50,6 +50,26 @@ try {
       FOREIGN KEY (codigo_deporte) REFERENCES "DEPORTE"(nombre),
       FOREIGN KEY (codigo_nivel) REFERENCES "NIVEL_ENTRENAMIENTO"(nivel)
     );
+
+    CREATE TABLE IF NOT EXISTS "PARTICIPACION" (
+      email TEXT NOT NULL,
+      codigo_entrenamiento INTEGER NOT NULL,
+      fecha_inscripcion TEXT NOT NULL,
+      PRIMARY KEY (email, codigo_entrenamiento),
+      FOREIGN KEY (email) REFERENCES "USUARIO"(email),
+      FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
+    );
+
+    CREATE TABLE IF NOT EXISTS "MENSAJE" (
+      fecha TEXT NOT NULL,
+      hora TEXT NOT NULL,
+      codigo_entrenamiento INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      contenido TEXT NOT NULL,
+      PRIMARY KEY (fecha, hora),
+      FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento),
+      FOREIGN KEY (email) REFERENCES "USUARIO"(email)
+    );
   `);
 
   const insertDeporte = db.prepare(

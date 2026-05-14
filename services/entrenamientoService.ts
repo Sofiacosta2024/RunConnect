@@ -42,3 +42,11 @@ export async function remove(codigoEntrenamiento: number) {
   const service = await getService();
   return service.remove(codigoEntrenamiento);
 }
+
+export async function crearEntrenamientoConChat(
+  idOrganizador: number,
+  input: Omit<import("./entrenamientoService.pg").EntrenamientoInput, "estado">
+) {
+  const service = await getService();
+  return service.crearEntrenamientoConChat(idOrganizador, input);
+}

@@ -20,6 +20,13 @@ export class ValidationError extends ApiError {
   }
 }
 
+export class EntrenamientoValidationError extends ApiError {
+  constructor(message: string, statusCode = 400, details?: unknown) {
+    super(statusCode, "VALIDATION_ERROR", message, details);
+    this.name = "EntrenamientoValidationError";
+  }
+}
+
 export class UnauthorizedError extends ApiError {
   constructor(message = "Debes iniciar sesion para realizar esta accion.") {
     super(401, "UNAUTHORIZED", message);

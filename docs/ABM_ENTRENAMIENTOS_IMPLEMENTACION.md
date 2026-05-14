@@ -12,6 +12,8 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Se agrego validacion temporal para fechas de entrenamientos (UTC).
 - Se centralizo la validacion temporal en la funcion pura `validarFechasEntrenamiento`.
 - Se refactorizo el modelo de entrenamiento con timestamps y estado.
+- Se definio el DTO de entrada para entrenamientos y un error dedicado de validacion.
+- Se implemento la creacion atomica de entrenamiento + chat (RN-03).
 IMPORTANTE: Estado en la tabla de entrenamiento, atributo no considerado en el modelo inicial, es de suma importancia, dado que sin este, no podríamos persistir la cancelación de un entrenamiento por parte del organizador. Además, este permite la finalización manual del entrenamiento: puede suceder que termine antes de lo previsto (datos cargados en el sistema), por lo que esta finalización manual activaría automáticamente las Calificaciones.
 A su vez, actúa como semáforo en las demás operaciones del sistema:
 - Con la tabla PARTICIPACIÓN: Solo se pueden insertar registros en PARTICIPACION si el entrenamiento tiene estado = 'abierto'.
@@ -29,15 +31,19 @@ A su vez, actúa como semáforo en las demás operaciones del sistema:
 
 - `scripts/init-sqlite.mjs` (nuevo)
   - Crea el archivo SQLite, DDL minimo y seeds (RUN, INTERMEDIO, usuario/organizador, 1 entrenamiento).
+  - Agrega tablas locales `PARTICIPACION` y `MENSAJE` para RN-03.
 
 - `services/entrenamientoService.pg.ts` (nuevo)
   - Contiene la logica original de Postgres, sin cambios funcionales.
+  - Incluye `crearEntrenamientoConChat` con transaccion y alta de chat.
 
 - `services/entrenamientoService.sqlite.ts` (nuevo)
   - Implementacion SQLite del ABM sin PostGIS. Guarda `punto_de_encuentro` como WKT en texto.
+  - Incluye `crearEntrenamientoConChat` para pruebas locales.
 
 - `services/entrenamientoService.ts`
   - Ahora es un selector: si `DB_MODE=sqlite` usa SQLite, si no usa Postgres.
+  - Expone `crearEntrenamientoConChat`.
 
 - `lib/organizer-auth.ts`
   - En modo SQLite, lee `x-organizer-id` o `LOCAL_ORGANIZER_ID` y valida entero positivo.
@@ -62,6 +68,21 @@ Interpretacion de zonas horarias:
 - Se recomienda enviar ISO 8601 con offset (ej: `2026-05-10T18:30:00-03:00`).
 
 ## Formato de request (frontend)
+
+### Endpoints relevantes
+
+- `POST /api/entrenamientos`
+  - Crea el entrenamiento y el chat de forma atomica (RN-03).
+  - Responde `201` con el objeto del entrenamiento creado.
+- `GET /api/entrenamientos`
+  - Lista entrenamientos.
+- `GET /api/entrenamientos/:id`
+  - Devuelve un entrenamiento por id.
+
+### Autenticacion requerida
+
+- El id del organizador se toma del contexto de autenticacion (header/cookie), no del JSON.
+- En modo local (SQLite): usar header `x-organizer-id` o `LOCAL_ORGANIZER_ID` en entorno.
 
 Se acepta un unico formato temporal:
 
@@ -91,6 +112,82 @@ Ejemplo de POST:
 ```
 
 Nota: `fecha_inicio`, `fecha_fin`, `fecha_limite_inscripcion` y `estado` ya forman parte del esquema.
+Nota: Para creacion, el `estado` debe ser `abierto`.
+
+### Ubicacion / punto de encuentro
+
+- Se acepta `ubicacion`, `puntoEncuentro` o `punto_de_encuentro`.
+- Formato recomendado: WKT `POINT(longitud latitud)`.
+- Alternativa: objeto `{ lat, lng }` o `{ latitude, longitude }`.
+
+### Respuesta esperada (creacion)
+
+`201 Created` con el entrenamiento creado. Ejemplo (campos clave):
+
+```json
+{
+  "ok": true,
+  "data": {
+    "codigoEntrenamiento": 123,
+    "idOrganizador": 1,
+    "codigoDeporte": "RUN",
+    "fechaInicio": "2026-05-10T21:30:00.000Z",
+    "fechaFin": "2026-05-10T23:30:00.000Z",
+    "fechaLimiteInscripcion": "2026-05-10T19:00:00.000Z",
+    "estado": "abierto",
+    "ubicacion": "POINT(-58.3816 -34.6037)",
+    "codigoNivel": "INTERMEDIO",
+    "cupoMaximo": 20
+  }
+}
+```
+
+## DTO y manejo de errores
+
+Se agrego un DTO tipado para la creacion de entrenamientos:
+
+```ts
+import type { EntrenamientoCreateDto } from "@/lib/entrenamiento-dto";
+
+const dto: EntrenamientoCreateDto = {
+  codigoDeporte: "RUN",
+  fechaInicio: "2026-05-10T18:30:00-03:00",
+  fechaFin: "2026-05-10T20:30:00-03:00",
+  fechaLimiteInscripcion: "2026-05-10T16:00:00Z",
+  estado: "abierto",
+  puntoEncuentro: "POINT(-58.3816 -34.6037)",
+  distanciaEstimada: 5.0,
+  ritmoObjetivo: "5:30/km",
+  codigoNivel: "INTERMEDIO",
+  cupoMaximo: 20,
+};
+```
+
+El `id_organizador` no forma parte del DTO porque se obtiene desde el contexto de autenticacion (`getAuthenticatedOrganizerId`) y se pasa como argumento separado al servicio.
+
+Para errores de validacion en entrenamientos se utiliza la clase `EntrenamientoValidationError`, que integra el mismo formato de respuesta que el resto de `ApiError` y permite personalizar el status (default 400).
+
+## RN-03: instanciacion automatica del chat
+
+Al crear un entrenamiento se ejecuta `crearEntrenamientoConChat`, que usa una transaccion para asegurar atomicidad:
+
+1. Valida fechas (y otros campos) antes de insertar.
+2. Inserta `ENTRENAMIENTO` con `estado = 'abierto'`.
+3. Inserta al organizador en `PARTICIPACION`.
+4. Inserta un mensaje inicial en `MENSAJE` (contenido de sistema).
+
+Si falla cualquiera de los pasos 3 o 4, se revierte la transaccion y el entrenamiento no queda creado sin su organizador como participante.
+
+## Tests de integracion RN-03
+
+Se agrego una suite de pruebas en `__tests__/entrenamientoService.test.ts` que valida atributos de calidad clave:
+
+- **Consistencia end-to-end:** en el camino feliz se crean `ENTRENAMIENTO`, `PARTICIPACION` y `MENSAJE` y se retorna el entrenamiento creado.
+- **Atomicidad:** si falla la insercion en `PARTICIPACION`, se revierte la transaccion y no persiste `ENTRENAMIENTO`.
+- **Reglas de negocio:** fechas invalidas disparan `EntrenamientoValidationError` y no se insertan registros.
+- **Consistencia de estado:** el entrenamiento creado queda con `estado = 'abierto'`.
+
+Estas pruebas usan SQLite en memoria y limpian tablas antes de cada caso para asegurar aislamiento.
 
 ## Validacion centralizada en backend
 

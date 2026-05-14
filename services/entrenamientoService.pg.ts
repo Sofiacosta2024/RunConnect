@@ -1,4 +1,9 @@
-import { DatabaseUnavailableError, NotFoundError, ValidationError } from "@/lib/api-errors";
+import {
+  DatabaseUnavailableError,
+  EntrenamientoValidationError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/api-errors";
 import { db } from "@/lib/db";
 import { entrenamiento, deporte, nivelEntrenamiento } from "@/db/schema";
 import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
@@ -43,6 +48,8 @@ export type EntrenamientoInput = {
   codigoNivel: string;
   cupoMaximo?: number | null;
 };
+
+type EntrenamientoChatInput = Omit<EntrenamientoInput, "estado">;
 
 type EntrenamientoRow = {
   codigoEntrenamiento: number;
@@ -103,11 +110,11 @@ function resolveEstado(estado: string) {
   const normalized = estado.trim().toLowerCase();
 
   if (!normalized) {
-    throw new ValidationError("estado es obligatorio.");
+    throw new EntrenamientoValidationError("estado es obligatorio.");
   }
 
   if (!entrenamientoEstados.has(normalized)) {
-    throw new ValidationError(
+    throw new EntrenamientoValidationError(
       "estado debe ser uno de: abierto, cerrado, cancelado, finalizado."
     );
   }
@@ -120,7 +127,7 @@ function normalizeLocation(ubicacion: LocationInput) {
     const trimmed = ubicacion.trim();
 
     if (!trimmed) {
-      throw new ValidationError("ubicacion es obligatoria.");
+      throw new EntrenamientoValidationError("ubicacion es obligatoria.");
     }
 
     return trimmed;
@@ -130,7 +137,7 @@ function normalizeLocation(ubicacion: LocationInput) {
   const longitude = ubicacion.longitude ?? ubicacion.lng;
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new ValidationError("ubicacion debe contener coordenadas validas.");
+    throw new EntrenamientoValidationError("ubicacion debe contener coordenadas validas.");
   }
 
   return `SRID=4326;POINT(${longitude} ${latitude})`;
@@ -138,22 +145,22 @@ function normalizeLocation(ubicacion: LocationInput) {
 
 function validateInput(input: EntrenamientoInput) {
   if (!input.codigoDeporte?.trim()) {
-    throw new ValidationError("codigoDeporte es obligatorio.");
+    throw new EntrenamientoValidationError("codigoDeporte es obligatorio.");
   }
 
   if (!input.codigoNivel?.trim()) {
-    throw new ValidationError("codigoNivel es obligatorio.");
+    throw new EntrenamientoValidationError("codigoNivel es obligatorio.");
   }
 
   const fechaInicioRaw = input.fechaInicio?.trim();
   const fechaFinRaw = input.fechaFin?.trim();
 
   if (!fechaInicioRaw) {
-    throw new ValidationError("fecha_inicio es obligatoria.");
+    throw new EntrenamientoValidationError("fecha_inicio es obligatoria.");
   }
 
   if (!fechaFinRaw) {
-    throw new ValidationError("fecha_fin es obligatoria.");
+    throw new EntrenamientoValidationError("fecha_fin es obligatoria.");
   }
 
   const fechasValidation = validarFechasEntrenamiento({
@@ -164,7 +171,9 @@ function validateInput(input: EntrenamientoInput) {
   });
 
   if (!fechasValidation.valido || !fechasValidation.fechas) {
-    throw new ValidationError(fechasValidation.error ?? "Fechas invalidas.");
+    throw new EntrenamientoValidationError(
+      fechasValidation.error ?? "Fechas invalidas."
+    );
   }
 
   const { inicio, fin, limite } = fechasValidation.fechas;
@@ -174,7 +183,7 @@ function validateInput(input: EntrenamientoInput) {
 
   if (input.cupoMaximo !== undefined && input.cupoMaximo !== null) {
     if (!Number.isInteger(input.cupoMaximo) || input.cupoMaximo <= 0) {
-      throw new ValidationError("cupoMaximo debe ser un entero positivo.");
+      throw new EntrenamientoValidationError("cupoMaximo debe ser un entero positivo.");
     }
   }
 
@@ -184,7 +193,9 @@ function validateInput(input: EntrenamientoInput) {
       !Number.isFinite(input.distanciaEstimada) ||
       input.distanciaEstimada <= 0
     ) {
-      throw new ValidationError("distanciaEstimada debe ser un numero positivo.");
+      throw new EntrenamientoValidationError(
+        "distanciaEstimada debe ser un numero positivo."
+      );
     }
   }
 
@@ -329,6 +340,120 @@ export async function create(idOrganizador: number, input: EntrenamientoInput) {
     return getById(Number(insertedId));
   } catch (error) {
     throwDatabaseUnavailable(error, "create");
+  }
+}
+
+export async function crearEntrenamientoConChat(
+  idOrganizador: number,
+  input: EntrenamientoChatInput
+) {
+  if (!isFinitePositiveInteger(idOrganizador)) {
+    throw new ValidationError("idOrganizador debe ser un entero positivo.");
+  }
+
+  const { fechaInicioDb, fechaFinDb, fechaLimiteInscripcionDb } = validateInput({
+    ...input,
+    estado: "abierto",
+  });
+
+  const ubicacion = normalizeLocation(input.ubicacion);
+  const welcomeMessage = "Entrenamiento creado. El chat esta disponible.";
+
+  try {
+    const insertedId = await db.transaction(async (tx) => {
+      // Usamos transaccion para asegurar que entrenamiento, participacion y mensaje
+      // se creen juntos o se reviertan en caso de error.
+      const organizerResult = await tx.execute(sql`
+        SELECT email
+        FROM "ORGANIZADOR"
+        WHERE id_organizador = ${idOrganizador}
+        LIMIT 1
+      `);
+
+      const organizerEmail = organizerResult.rows?.[0]?.email as string | undefined;
+
+      if (!organizerEmail) {
+        throw new NotFoundError("Organizador no encontrado.");
+      }
+
+      const insertResult = await tx.execute(sql`
+        INSERT INTO "ENTRENAMIENTO" (
+          id_organizador,
+          codigo_deporte,
+          fecha_inicio,
+          fecha_fin,
+          fecha_limite_inscripcion,
+          estado,
+          punto_de_encuentro,
+          distancia_estimada,
+          ritmo_objetivo,
+          codigo_nivel,
+          cupo_maximo
+        ) VALUES (
+          ${idOrganizador},
+          ${input.codigoDeporte.trim()},
+          ${fechaInicioDb}::timestamptz,
+          ${fechaFinDb}::timestamptz,
+          ${fechaLimiteInscripcionDb}::timestamptz,
+          ${"abierto"},
+          ST_GeogFromText(${ubicacion}),
+          ${input.distanciaEstimada ?? null},
+          ${input.ritmoObjetivo?.trim() ?? null},
+          ${input.codigoNivel.trim()},
+          ${input.cupoMaximo ?? null}
+        ) RETURNING codigo_entrenamiento
+      `);
+
+      const codigoEntrenamiento = insertResult.rows?.[0]?.codigo_entrenamiento;
+      if (!codigoEntrenamiento) throw new DatabaseUnavailableError();
+
+      const now = new Date();
+      const fechaMensaje = now.toISOString().slice(0, 10);
+      const horaMensaje = now.toISOString().slice(11, 19);
+
+      await tx.execute(sql`
+        INSERT INTO "PARTICIPACION" (
+          email,
+          codigo_entrenamiento,
+          fecha_inscripcion
+        ) VALUES (
+          ${organizerEmail},
+          ${codigoEntrenamiento},
+          ${now.toISOString()}::timestamptz
+        )
+      `);
+
+      await tx.execute(sql`
+        INSERT INTO "MENSAJE" (
+          fecha,
+          hora,
+          codigo_entrenamiento,
+          email,
+          contenido
+        ) VALUES (
+          ${fechaMensaje}::date,
+          ${horaMensaje}::time,
+          ${codigoEntrenamiento},
+          ${organizerEmail},
+          ${welcomeMessage}
+        )
+      `);
+
+      return Number(codigoEntrenamiento);
+    });
+
+    return getById(insertedId);
+  } catch (error) {
+    if (
+      error instanceof ValidationError ||
+      error instanceof EntrenamientoValidationError ||
+      error instanceof NotFoundError ||
+      error instanceof DatabaseUnavailableError
+    ) {
+      throw error;
+    }
+
+    throwDatabaseUnavailable(error, "crearEntrenamientoConChat");
   }
 }
 

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { ValidationError, toApiErrorResponse } from "@/lib/api-errors";
+import {
+  EntrenamientoValidationError,
+  ValidationError,
+  toApiErrorResponse,
+} from "@/lib/api-errors";
+import type { EntrenamientoCreateDto } from "@/lib/entrenamiento-dto";
 import { getAuthenticatedOrganizerId } from "@/lib/organizer-auth";
-import { create, getAll } from "@/services/entrenamientoService";
+import { crearEntrenamientoConChat, getAll } from "@/services/entrenamientoService";
 
 export const runtime = "nodejs";
 
@@ -42,7 +47,7 @@ export async function POST(request: Request) {
     const fechaFin = body.fechaFin ?? body.fecha_fin;
     const fechaLimiteInscripcion = body.fechaLimiteInscripcion ?? body.fecha_limite_inscripcion;
 
-    const entrenamiento = await create(organizerId, {
+    const dto: EntrenamientoCreateDto = {
       codigoDeporte: String(body.codigoDeporte ?? ""),
       fechaInicio:
         fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
@@ -51,20 +56,47 @@ export async function POST(request: Request) {
         fechaLimiteInscripcion === undefined || fechaLimiteInscripcion === null
           ? null
           : String(fechaLimiteInscripcion),
-      estado: String(body.estado ?? ""),
-      ubicacion: parseBodyLocation(body) ?? "",
+      estado: String(body.estado ?? "") as EntrenamientoCreateDto["estado"],
+      puntoEncuentro: parseBodyLocation(body) ?? "",
       distanciaEstimada:
         body.distanciaEstimada === undefined || body.distanciaEstimada === null
           ? null
           : Number(body.distanciaEstimada),
-      ritmoObjetivo: body.ritmoObjetivo === undefined || body.ritmoObjetivo === null ? null : String(body.ritmoObjetivo),
+      ritmoObjetivo:
+        body.ritmoObjetivo === undefined || body.ritmoObjetivo === null
+          ? null
+          : String(body.ritmoObjetivo),
       codigoNivel: String(body.codigoNivel ?? ""),
       cupoMaximo:
-        body.cupoMaximo === undefined || body.cupoMaximo === null ? null : Number(body.cupoMaximo),
+        body.cupoMaximo === undefined || body.cupoMaximo === null
+          ? null
+          : Number(body.cupoMaximo),
+    };
+
+    if (dto.estado.trim().toLowerCase() !== "abierto") {
+      throw new EntrenamientoValidationError(
+        "estado debe ser 'abierto' al crear el entrenamiento."
+      );
+    }
+
+    const entrenamiento = await crearEntrenamientoConChat(organizerId, {
+      codigoDeporte: dto.codigoDeporte,
+      fechaInicio: dto.fechaInicio,
+      fechaFin: dto.fechaFin,
+      fechaLimiteInscripcion: dto.fechaLimiteInscripcion ?? null,
+      ubicacion: dto.puntoEncuentro,
+      distanciaEstimada: dto.distanciaEstimada,
+      ritmoObjetivo: dto.ritmoObjetivo,
+      codigoNivel: dto.codigoNivel,
+      cupoMaximo: dto.cupoMaximo,
     });
 
     return NextResponse.json({ ok: true, data: entrenamiento }, { status: 201 });
   } catch (error) {
+    if (error instanceof EntrenamientoValidationError) {
+      return toApiErrorResponse(error);
+    }
+
     return toApiErrorResponse(error);
   }
 }
