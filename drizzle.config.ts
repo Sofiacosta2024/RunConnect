@@ -11,7 +11,8 @@ export default {
   out: "./db/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    connectionString,
+    url: connectionString,
   },
   strict: true,
 } satisfies Config;
+
