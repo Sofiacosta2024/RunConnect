@@ -45,6 +45,12 @@ export class NotFoundError extends ApiError {
   }
 }
 
+export class BusinessRuleError extends ApiError {
+  constructor(message = "Las reglas de negocio no se cumplieron.") {
+    super(422, "BUSINESS_RULE_VIOLATION", message);
+  }
+}
+
 export class DatabaseUnavailableError extends ApiError {
   constructor(message = "El proveedor externo de base de datos no responde.", pgError?: { code?: string; message?: string }) {
     super(500, "DATABASE_UNAVAILABLE", message, 
