@@ -59,6 +59,12 @@ export class DatabaseUnavailableError extends ApiError {
   }
 }
 
+export class InternalServerError extends ApiError {
+  constructor(message = "Error interno del servidor.") {
+    super(500, "INTERNAL_SERVER_ERROR", message);
+  }
+}
+
 export function toApiErrorResponse(error: unknown, fallbackMessage = "No se pudo procesar la solicitud.") {
   const apiError = error instanceof ApiError ? error : new ApiError(500, "INTERNAL_ERROR", fallbackMessage);
 
