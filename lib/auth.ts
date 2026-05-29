@@ -1,7 +1,7 @@
 import "server-only";
-import { auth } from "@/auth";
+
+import { getAuth as _getAuth } from "@/auth";
 
 export function getAuth() {
-  return auth;
+  return _getAuth();
 }
-

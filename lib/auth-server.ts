@@ -7,7 +7,6 @@ export async function getServerSession(headers: Headers) {
     headers,
   });
 }
-
 export async function signOutServer(headers: Headers) {
   return getAuth().api.signOut({
     headers,

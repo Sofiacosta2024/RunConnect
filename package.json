@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node __tests__/auth.test.mjs"
+    "test": "node __tests__/auth.test.mjs",
+    "test:rn03": "node --experimental-strip-types --loader ./scripts/alias-loader.mjs __tests__/entrenamientoService.test.ts"
   },
   "dependencies": {
+    "better-sqlite3": "^12.0.0",
     "better-auth": "^1.6.9",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.4",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.10",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",

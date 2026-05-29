@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 let handler: ReturnType<typeof toNextJsHandler> | undefined;
 
 function getHandler() {
-
   if (handler) return handler;
 
   handler = toNextJsHandler(getAuth());

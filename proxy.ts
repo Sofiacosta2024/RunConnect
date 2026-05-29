@@ -18,6 +18,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (process.env.DB_MODE === "sqlite" && pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const session = await getServerSession(request.headers);
 
   if (session) {
