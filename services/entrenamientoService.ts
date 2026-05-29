@@ -23,11 +23,11 @@ export async function getById(codigoEntrenamiento: number) {
 }
 
 export async function create(
-  idOrganizador: number,
+  emailOrganizador: string,
   input: import("./entrenamientoService.pg").EntrenamientoInput
 ) {
   const service = await getService();
-  return service.create(idOrganizador, input);
+  return service.create(emailOrganizador, input);
 }
 
 export async function update(
@@ -44,9 +44,9 @@ export async function remove(codigoEntrenamiento: number) {
 }
 
 export async function crearEntrenamientoConChat(
-  idOrganizador: number,
+  emailOrganizador: string,
   input: Omit<import("./entrenamientoService.pg").EntrenamientoInput, "estado">
 ) {
   const service = await getService();
-  return service.crearEntrenamientoConChat(idOrganizador, input);
+  return service.crearEntrenamientoConChat(emailOrganizador, input);
 }

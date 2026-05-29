@@ -36,14 +36,13 @@ async function run(name, request) {
 const now = new Date();
 const startIso = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
 const endIso = new Date(new Date(startIso).getTime() + 2 * 60 * 60 * 1000).toISOString();
-const limitIso = new Date(new Date(startIso).getTime() - 15 * 60 * 1000).toISOString();
 const tooSoonIso = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
 const tooLongIso = new Date(new Date(startIso).getTime() + 7 * 60 * 60 * 1000).toISOString();
 
-const organizerId = process.env.LOCAL_ORGANIZER_ID;
+const organizerEmail = process.env.LOCAL_ORGANIZER_EMAIL;
 const jsonHeaders = { "content-type": "application/json" };
-const writeHeaders = organizerId
-  ? { ...jsonHeaders, "x-organizer-id": organizerId }
+const writeHeaders = organizerEmail
+  ? { ...jsonHeaders, "x-organizer-email": organizerEmail }
   : jsonHeaders;
 
 await run("GET /api/entrenamientos", {
@@ -65,10 +64,9 @@ const postResult = await run("POST /api/entrenamientos (anon)", {
       codigoDeporte: "RUN",
       fecha_inicio: startIso,
       fecha_fin: endIso,
-      fecha_limite_inscripcion: limitIso,
       estado: "abierto",
       ubicacion: "POINT(-58.3816 -34.6037)",
-      codigoNivel: "INTERMEDIO",
+      nivel: "intermedio",
       cupoMaximo: 20,
     }),
   },
@@ -85,7 +83,7 @@ await run("POST /api/entrenamientos (fecha_inicio en pasado)", {
       fecha_fin: endIso,
       estado: "abierto",
       ubicacion: "POINT(-58.3816 -34.6037)",
-      codigoNivel: "INTERMEDIO",
+      nivel: "intermedio",
     }),
   },
 });
@@ -101,7 +99,7 @@ await run("POST /api/entrenamientos (fecha_inicio muy pronto)", {
       fecha_fin: endIso,
       estado: "abierto",
       ubicacion: "POINT(-58.3816 -34.6037)",
-      codigoNivel: "INTERMEDIO",
+      nivel: "intermedio",
     }),
   },
 });
@@ -117,7 +115,7 @@ await run("POST /api/entrenamientos (fecha_fin antes de inicio)", {
       fecha_fin: new Date(new Date(startIso).getTime() - 30 * 60 * 1000).toISOString(),
       estado: "abierto",
       ubicacion: "POINT(-58.3816 -34.6037)",
-      codigoNivel: "INTERMEDIO",
+      nivel: "intermedio",
     }),
   },
 });
@@ -133,24 +131,7 @@ await run("POST /api/entrenamientos (duracion excedida)", {
       fecha_fin: tooLongIso,
       estado: "abierto",
       ubicacion: "POINT(-58.3816 -34.6037)",
-      codigoNivel: "INTERMEDIO",
-    }),
-  },
-});
-
-await run("POST /api/entrenamientos (limite despues de inicio)", {
-  url: `${baseUrl}/api/entrenamientos`,
-  init: {
-    method: "POST",
-    headers: writeHeaders,
-    body: JSON.stringify({
-      codigoDeporte: "RUN",
-      fecha_inicio: startIso,
-      fecha_fin: endIso,
-      fecha_limite_inscripcion: new Date(new Date(startIso).getTime() + 15 * 60 * 1000).toISOString(),
-      estado: "abierto",
-      ubicacion: "POINT(-58.3816 -34.6037)",
-      codigoNivel: "INTERMEDIO",
+      nivel: "intermedio",
     }),
   },
 });
@@ -167,10 +148,9 @@ if (createdId) {
         codigoDeporte: "RUN",
         fecha_inicio: startIso,
         fecha_fin: endIso,
-        fecha_limite_inscripcion: limitIso,
         estado: "abierto",
         ubicacion: "POINT(-58.3816 -34.6037)",
-        codigoNivel: "INTERMEDIO",
+        nivel: "intermedio",
         cupoMaximo: 20,
       }),
     },

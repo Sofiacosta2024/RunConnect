@@ -2,26 +2,26 @@ import "server-only";
 
 import { ForbiddenError, UnauthorizedError, ValidationError } from "@/lib/api-errors";
 
-function parseLocalOrganizerId(rawValue: string | null) {
+function parseLocalOrganizerEmail(rawValue: string | null) {
   if (!rawValue) {
     throw new UnauthorizedError();
   }
 
-  const parsed = Number(rawValue);
+  const trimmed = rawValue.trim();
 
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new ValidationError("x-organizer-id debe ser un entero positivo.");
+  if (!trimmed || !trimmed.includes("@")) {
+    throw new ValidationError("x-organizer-email debe ser un correo valido.");
   }
 
-  return parsed;
+  return trimmed;
 }
 
-export async function getAuthenticatedOrganizerId(headers: Headers) {
+export async function getAuthenticatedOrganizerEmail(headers: Headers) {
   if (process.env.DB_MODE === "sqlite") {
-    const headerId = headers.get("x-organizer-id");
-    const envId = process.env.LOCAL_ORGANIZER_ID ?? null;
+    const headerEmail = headers.get("x-organizer-email");
+    const envEmail = process.env.LOCAL_ORGANIZER_EMAIL ?? null;
 
-    return parseLocalOrganizerId(headerId ?? envId);
+    return parseLocalOrganizerEmail(headerEmail ?? envEmail);
   }
 
   const cookieHeader = headers.get("cookie");
@@ -41,16 +41,16 @@ export async function getAuthenticatedOrganizerId(headers: Headers) {
     throw new UnauthorizedError();
   }
 
-  const result = await pool.query<{ id_organizador: number }>(
-    'SELECT id_organizador FROM "ORGANIZADOR" WHERE email = $1 LIMIT 1',
+  const result = await pool.query<{ email: string }>(
+    'SELECT email FROM "USUARIO" WHERE email = $1 LIMIT 1',
     [email]
   );
 
-  const organizer = result.rows[0];
+  const usuario = result.rows[0];
 
-  if (!organizer) {
-    throw new ForbiddenError("La cuenta autenticada no tiene perfil de organizador.");
+  if (!usuario) {
+    throw new ForbiddenError("La cuenta autenticada no esta registrada.");
   }
 
-  return organizer.id_organizador;
+  return email;
 }

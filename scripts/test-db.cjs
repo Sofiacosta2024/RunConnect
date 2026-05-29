@@ -14,7 +14,7 @@ async function test() {
             { name: 'PostGIS', sql: "SELECT extname FROM pg_extension WHERE extname='postgis'" },
             { name: 'Tabla Entrenamiento', sql: 'SELECT count(*) FROM "ENTRENAMIENTO"' },
             { name: 'Tabla Deporte', sql: 'SELECT count(*) FROM "DEPORTE"' },
-            { name: 'Tabla Nivel', sql: 'SELECT count(*) FROM "NIVEL_ENTRENAMIENTO"' },
+            { name: 'Tabla Usuario Entrenamiento', sql: 'SELECT count(*) FROM "USUARIO_ENTRENAMIENTO"' },
             { name: 'Prueba Geográfica', sql: "SELECT ST_AsText('POINT(-58.38 -34.60)'::geometry) as p" }
         ];
 

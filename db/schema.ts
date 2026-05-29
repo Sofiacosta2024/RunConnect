@@ -1,6 +1,7 @@
 import {
 	customType,
 	date,
+	foreignKey,
 	integer,
 	numeric,
 	pgEnum,
@@ -30,11 +31,6 @@ export const deporte = pgTable("DEPORTE", {
 	descripcionDeporte: text("descripcion_deporte"),
 });
 
-export const nivelEntrenamiento = pgTable("NIVEL_ENTRENAMIENTO", {
-	nivel: text("nivel").primaryKey(),
-	descripcionNivel: text("descripcion_nivel"),
-});
-
 export const usuario = pgTable("USUARIO", {
 	email: text("email").primaryKey(),
 	nombre: text("nombre").notNull(),
@@ -43,33 +39,47 @@ export const usuario = pgTable("USUARIO", {
 	codigoDeporte: text("codigo_deporte").references(() => deporte.nombre),
 });
 
-export const organizador = pgTable("ORGANIZADOR", {
-	idOrganizador: serial("id_organizador").primaryKey(),
-	email: text("email").notNull().references(() => usuario.email),
-});
-
 export const entrenamiento = pgTable("ENTRENAMIENTO", {
 	codigoEntrenamiento: serial("codigo_entrenamiento").primaryKey(),
-	idOrganizador: integer("id_organizador")
+	emailOrganizador: text("email_organizador")
 		.notNull()
-		.references(() => organizador.idOrganizador),
+		.references(() => usuario.email),
 	codigoDeporte: text("codigo_deporte")
 		.notNull()
 		.references(() => deporte.nombre),
 	fechaInicio: timestamp("fecha_inicio", { withTimezone: true }).notNull(),
 	fechaFin: timestamp("fecha_fin", { withTimezone: true }).notNull(),
-	fechaLimiteInscripcion: timestamp("fecha_limite_inscripcion", {
-		withTimezone: true,
-	}),
 	estado: entrenamientoEstado("estado").notNull().default("abierto"),
 	puntoEncuentro: geographyPoint("punto_de_encuentro").notNull(),
 	distanciaEstimada: numeric("distancia_estimada", { precision: 6, scale: 2 }),
 	ritmoObjetivo: text("ritmo_objetivo"),
-	codigoNivel: text("codigo_nivel")
-		.notNull()
-		.references(() => nivelEntrenamiento.nivel),
+	nivel: text("nivel").notNull(),
 	cupoMaximo: integer("cupo_maximo"),
 });
+
+export const usuarioEntrenamiento = pgTable(
+	"USUARIO_ENTRENAMIENTO",
+	{
+		codigoEntrenamiento: integer("codigo_entrenamiento")
+			.notNull()
+			.references(() => entrenamiento.codigoEntrenamiento),
+		email: text("email").notNull().references(() => usuario.email),
+		codigoCalificacion: integer("codigo_calificacion"),
+		rol: text("rol").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.codigoEntrenamiento, table.email] })]
+);
+
+export const usuarioMensajeEntrenamiento = pgTable(
+	"USUARIO_MENSAJE_ENTRENAMIENTO",
+	{
+		codigoEntrenamiento: integer("codigo_entrenamiento")
+			.notNull()
+			.references(() => entrenamiento.codigoEntrenamiento),
+		email: text("email").notNull().references(() => usuario.email),
+	},
+	(table) => [primaryKey({ columns: [table.codigoEntrenamiento, table.email] })]
+);
 
 export const mensaje = pgTable(
 	"MENSAJE",
@@ -82,21 +92,44 @@ export const mensaje = pgTable(
 		email: text("email").notNull().references(() => usuario.email),
 		contenido: text("contenido").notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.fecha, table.hora] })]
+	(table) => [
+		primaryKey({ columns: [table.fecha, table.hora, table.email] }),
+		foreignKey({
+			columns: [table.codigoEntrenamiento, table.email],
+			foreignColumns: [
+				usuarioMensajeEntrenamiento.codigoEntrenamiento,
+				usuarioMensajeEntrenamiento.email,
+			],
+		}),
+	]
 );
 
-export const calificacion = pgTable("CALIFICACION", {
-	codigoCalificacion: serial("codigo_calificacion").primaryKey(),
-	email: text("email").notNull().references(() => usuario.email),
-	idOrganizador: integer("id_organizador")
-		.notNull()
-		.references(() => organizador.idOrganizador),
-	codigoEntrenamiento: integer("codigo_entrenamiento")
-		.notNull()
-		.references(() => entrenamiento.codigoEntrenamiento),
-	puntaje: integer("puntaje").notNull(),
-	comentario: text("comentario"),
-});
+export const calificacion = pgTable(
+	"CALIFICACION",
+	{
+		codigoCalificacion: serial("codigo_calificacion").primaryKey(),
+		emailCalificado: text("email_calificado")
+			.notNull()
+			.references(() => usuario.email),
+		emailCalificador: text("email_calificador")
+			.notNull()
+			.references(() => usuario.email),
+		codigoEntrenamiento: integer("codigo_entrenamiento")
+			.notNull()
+			.references(() => entrenamiento.codigoEntrenamiento),
+		puntaje: integer("puntaje").notNull(),
+		comentario: text("comentario"),
+	},
+	(table) => [
+		foreignKey({
+			columns: [table.emailCalificado, table.codigoEntrenamiento],
+			foreignColumns: [
+				usuarioEntrenamiento.email,
+				usuarioEntrenamiento.codigoEntrenamiento,
+			],
+		}),
+	]
+);
 
 export const usuarioDeporte = pgTable(
 	"USUARIO_DEPORTE",
@@ -109,15 +142,30 @@ export const usuarioDeporte = pgTable(
 	(table) => [primaryKey({ columns: [table.codigoDeporte, table.email] })]
 );
 
-export const participacion = pgTable(
-	"PARTICIPACION",
+
+export const solicitudEstado = pgEnum("solicitud_estado", [
+	"aprobado",
+	"rechazado",
+	"pendiente",
+]);
+
+export const solicitud = pgTable("SOLICITUD", {
+	codigoSolicitud: serial("codigo_solicitud").primaryKey(),
+	email: text("email").notNull().references(() => usuario.email),
+	codigoEntrenamiento: integer("codigo_entrenamiento")
+		.notNull()
+		.references(() => entrenamiento.codigoEntrenamiento),
+	estado: solicitudEstado("estado").notNull().default("pendiente"),
+	fecha: timestamp("fecha", { withTimezone: true }).notNull(),
+});
+
+export const grupoSolicitud = pgTable(
+	"GRUPO_SOLICITUD",
 	{
-		email: text("email").notNull().references(() => usuario.email),
 		codigoEntrenamiento: integer("codigo_entrenamiento")
 			.notNull()
 			.references(() => entrenamiento.codigoEntrenamiento),
-		fechaInscripcion: timestamp("fecha_inscripcion", { withTimezone: true })
-			.notNull(),
+		email: text("email").notNull().references(() => usuario.email),
 	},
-	(table) => [primaryKey({ columns: [table.email, table.codigoEntrenamiento] })]
+	(table) => [primaryKey({ columns: [table.codigoEntrenamiento, table.email] })]
 );

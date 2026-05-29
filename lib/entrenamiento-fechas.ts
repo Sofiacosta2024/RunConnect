@@ -1,7 +1,6 @@
 export type ValidarFechasEntrenamientoInput = {
   fechaInicio: string;
   fechaFin: string;
-  fechaLimiteInscripcion?: string | null;
   now: Date;
 };
 
@@ -11,7 +10,6 @@ export type ValidarFechasEntrenamientoResult = {
   fechas?: {
     inicio: Date;
     fin: Date;
-    limite: Date | null;
   };
 };
 
@@ -99,39 +97,11 @@ export function validarFechasEntrenamiento(
     };
   }
 
-  let limite: Date | null = null;
-  const limiteRaw = input.fechaLimiteInscripcion;
-
-  if (limiteRaw !== undefined && limiteRaw !== null && String(limiteRaw).trim()) {
-    const limiteResult = parseUtcDateTime(String(limiteRaw), "fecha_limite_inscripcion");
-    if (!limiteResult.ok) {
-      return { valido: false, error: limiteResult.error };
-    }
-
-    limite = limiteResult.value;
-    const limiteMs = limite.getTime();
-
-    if (limiteMs <= nowMs) {
-      return {
-        valido: false,
-        error: "fecha_limite_inscripcion debe ser posterior a la fecha y hora actual.",
-      };
-    }
-
-    if (limiteMs > inicioMs) {
-      return {
-        valido: false,
-        error: "fecha_limite_inscripcion debe ser anterior o igual a fecha_inicio.",
-      };
-    }
-  }
-
   return {
     valido: true,
     fechas: {
       inicio,
       fin,
-      limite,
     },
   };
 }

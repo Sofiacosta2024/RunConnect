@@ -7,7 +7,7 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Se agrego un modo local con SQLite para pruebas rapidas.
 - Se separo el servicio de entrenamientos en Postgres y SQLite.
 - Se creo un selector que elige el servicio segun `DB_MODE`.
-- Se agrego un bypass de auth local para organizar pruebas con `x-organizer-id` o `LOCAL_ORGANIZER_ID`.
+- Se agrego un bypass de auth local para organizar pruebas con `x-organizer-email` o `LOCAL_ORGANIZER_EMAIL`.
 - Se ajusto el script de smoke test para usar el id creado y evitar 404 en PUT/DELETE.
 - Se agrego validacion temporal para fechas de entrenamientos (UTC).
 - Se centralizo la validacion temporal en la funcion pura `validarFechasEntrenamiento`.
@@ -16,7 +16,7 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Se implemento la creacion atomica de entrenamiento + chat (RN-03).
 IMPORTANTE: Estado en la tabla de entrenamiento, atributo no considerado en el modelo inicial, es de suma importancia, dado que sin este, no podríamos persistir la cancelación de un entrenamiento por parte del organizador. Además, este permite la finalización manual del entrenamiento: puede suceder que termine antes de lo previsto (datos cargados en el sistema), por lo que esta finalización manual activaría automáticamente las Calificaciones.
 A su vez, actúa como semáforo en las demás operaciones del sistema:
-- Con la tabla PARTICIPACIÓN: Solo se pueden insertar registros en PARTICIPACION si el entrenamiento tiene estado = 'abierto'.
+- Con la tabla USUARIO_ENTRENAMIENTO: Solo se pueden insertar registros si el entrenamiento tiene estado = 'abierto'.
 - Con la tabla MENSAJE: Podríamos definir que si el entrenamiento cambia a estado = 'finalizado', el chat se vuelve de "solo lectura" después de 24 horas.
 -Con la tabla CALIFICACIÓN: No se debería poder insertar una fila en CALIFICACION si el entrenamiento no está en estado = "finalizado".
 
@@ -30,8 +30,8 @@ A su vez, actúa como semáforo en las demás operaciones del sistema:
   - Helper para abrir SQLite con `SQLITE_DB_PATH` y habilitar `foreign_keys`.
 
 - `scripts/init-sqlite.mjs` (nuevo)
-  - Crea el archivo SQLite, DDL minimo y seeds (RUN, INTERMEDIO, usuario/organizador, 1 entrenamiento).
-  - Agrega tablas locales `PARTICIPACION` y `MENSAJE` para RN-03.
+  - Crea el archivo SQLite, DDL minimo y seeds (RUN, usuario, 1 entrenamiento).
+  - Agrega tablas locales `USUARIO_ENTRENAMIENTO`, `USUARIO_MENSAJE_ENTRENAMIENTO` y `MENSAJE` para RN-03.
 
 - `services/entrenamientoService.pg.ts` (nuevo)
   - Contiene la logica original de Postgres, sin cambios funcionales.
@@ -46,7 +46,7 @@ A su vez, actúa como semáforo en las demás operaciones del sistema:
   - Expone `crearEntrenamientoConChat`.
 
 - `lib/organizer-auth.ts`
-  - En modo SQLite, lee `x-organizer-id` o `LOCAL_ORGANIZER_ID` y valida entero positivo.
+  - En modo SQLite, lee `x-organizer-email` o `LOCAL_ORGANIZER_EMAIL` y valida email.
   - En modo Postgres mantiene el flujo original (session + pool).
 
 - `scripts/test-entrenamientos.mjs`
@@ -60,7 +60,6 @@ Reglas aplicadas en la capa de servicio (Postgres y SQLite):
 - `fecha_inicio` debe ser al menos 30 minutos posterior a la fecha y hora actual.
 - `fecha_fin` debe ser estrictamente posterior a `fecha_inicio`.
 - Duracion entre 15 minutos y 6 horas entre `fecha_inicio` y `fecha_fin`.
-- Si existe `fecha_limite_inscripcion`, debe ser > ahora y <= `fecha_inicio`.
 
 Interpretacion de zonas horarias:
 
@@ -81,8 +80,8 @@ Interpretacion de zonas horarias:
 
 ### Autenticacion requerida
 
-- El id del organizador se toma del contexto de autenticacion (header/cookie), no del JSON.
-- En modo local (SQLite): usar header `x-organizer-id` o `LOCAL_ORGANIZER_ID` en entorno.
+- El email del organizador se toma del contexto de autenticacion (header/cookie), no del JSON.
+- En modo local (SQLite): usar header `x-organizer-email` o `LOCAL_ORGANIZER_EMAIL` en entorno.
 
 Se acepta un unico formato temporal:
 
@@ -93,8 +92,8 @@ Campos aceptados (snake o camel case):
 
 - `fecha_inicio` / `fechaInicio` (obligatoria)
 - `fecha_fin` / `fechaFin` (obligatoria)
-- `fecha_limite_inscripcion` / `fechaLimiteInscripcion` (opcional)
 - `estado` (obligatorio: abierto, cerrado, cancelado, finalizado)
+- `nivel` (obligatorio: principiante, intermedio, avanzado)
 
 Ejemplo de POST:
 
@@ -103,15 +102,14 @@ Ejemplo de POST:
   "codigoDeporte": "RUN",
   "fecha_inicio": "2026-05-10T18:30:00-03:00",
   "fecha_fin": "2026-05-10T20:30:00-03:00",
-  "fecha_limite_inscripcion": "2026-05-10T16:00:00Z",
   "ubicacion": "POINT(-58.3816 -34.6037)",
-  "codigoNivel": "INTERMEDIO",
+  "nivel": "intermedio",
   "cupoMaximo": 20,
   "estado": "abierto"
 }
 ```
 
-Nota: `fecha_inicio`, `fecha_fin`, `fecha_limite_inscripcion` y `estado` ya forman parte del esquema.
+Nota: `fecha_inicio`, `fecha_fin` y `estado` ya forman parte del esquema.
 Nota: Para creacion, el `estado` debe ser `abierto`.
 
 ### Ubicacion / punto de encuentro
@@ -129,14 +127,13 @@ Nota: Para creacion, el `estado` debe ser `abierto`.
   "ok": true,
   "data": {
     "codigoEntrenamiento": 123,
-    "idOrganizador": 1,
+    "emailOrganizador": "organizador@runconnect.test",
     "codigoDeporte": "RUN",
     "fechaInicio": "2026-05-10T21:30:00.000Z",
     "fechaFin": "2026-05-10T23:30:00.000Z",
-    "fechaLimiteInscripcion": "2026-05-10T19:00:00.000Z",
     "estado": "abierto",
-    "ubicacion": "POINT(-58.3816 -34.6037)",
-    "codigoNivel": "INTERMEDIO",
+    "puntoEncuentro": "POINT(-58.3816 -34.6037)",
+    "nivel": "intermedio",
     "cupoMaximo": 20
   }
 }
@@ -153,17 +150,16 @@ const dto: EntrenamientoCreateDto = {
   codigoDeporte: "RUN",
   fechaInicio: "2026-05-10T18:30:00-03:00",
   fechaFin: "2026-05-10T20:30:00-03:00",
-  fechaLimiteInscripcion: "2026-05-10T16:00:00Z",
   estado: "abierto",
   puntoEncuentro: "POINT(-58.3816 -34.6037)",
   distanciaEstimada: 5.0,
   ritmoObjetivo: "5:30/km",
-  codigoNivel: "INTERMEDIO",
+  nivel: "intermedio",
   cupoMaximo: 20,
 };
 ```
 
-El `id_organizador` no forma parte del DTO porque se obtiene desde el contexto de autenticacion (`getAuthenticatedOrganizerId`) y se pasa como argumento separado al servicio.
+El `email_organizador` no forma parte del DTO porque se obtiene desde el contexto de autenticacion (`getAuthenticatedOrganizerEmail`) y se pasa como argumento separado al servicio.
 
 Para errores de validacion en entrenamientos se utiliza la clase `EntrenamientoValidationError`, que integra el mismo formato de respuesta que el resto de `ApiError` y permite personalizar el status (default 400).
 
@@ -173,17 +169,18 @@ Al crear un entrenamiento se ejecuta `crearEntrenamientoConChat`, que usa una tr
 
 1. Valida fechas (y otros campos) antes de insertar.
 2. Inserta `ENTRENAMIENTO` con `estado = 'abierto'`.
-3. Inserta al organizador en `PARTICIPACION`.
-4. Inserta un mensaje inicial en `MENSAJE` (contenido de sistema).
+3. Inserta al organizador en `USUARIO_ENTRENAMIENTO` (rol `organizador`).
+4. Inserta al organizador en `USUARIO_MENSAJE_ENTRENAMIENTO`.
+5. Inserta un mensaje inicial en `MENSAJE` (contenido de sistema).
 
-Si falla cualquiera de los pasos 3 o 4, se revierte la transaccion y el entrenamiento no queda creado sin su organizador como participante.
+Si falla cualquiera de los pasos 3 a 5, se revierte la transaccion y el entrenamiento no queda creado sin su organizador como participante.
 
 ## Tests de integracion RN-03
 
 Se agrego una suite de pruebas en `__tests__/entrenamientoService.test.ts` que valida atributos de calidad clave:
 
-- **Consistencia end-to-end:** en el camino feliz se crean `ENTRENAMIENTO`, `PARTICIPACION` y `MENSAJE` y se retorna el entrenamiento creado.
-- **Atomicidad:** si falla la insercion en `PARTICIPACION`, se revierte la transaccion y no persiste `ENTRENAMIENTO`.
+- **Consistencia end-to-end:** en el camino feliz se crean `ENTRENAMIENTO`, `USUARIO_ENTRENAMIENTO`, `USUARIO_MENSAJE_ENTRENAMIENTO` y `MENSAJE` y se retorna el entrenamiento creado.
+- **Atomicidad:** si falla la insercion en `USUARIO_ENTRENAMIENTO`, se revierte la transaccion y no persiste `ENTRENAMIENTO`.
 - **Reglas de negocio:** fechas invalidas disparan `EntrenamientoValidationError` y no se insertan registros.
 - **Consistencia de estado:** el entrenamiento creado queda con `estado = 'abierto'`.
 
@@ -200,7 +197,6 @@ import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
 const resultado = validarFechasEntrenamiento({
   fechaInicio: String(body.fecha_inicio ?? body.fechaInicio ?? ""),
   fechaFin: String(body.fecha_fin ?? body.fechaFin ?? ""),
-  fechaLimiteInscripcion: body.fecha_limite_inscripcion ?? body.fechaLimiteInscripcion ?? null,
   now: new Date(),
 });
 
@@ -231,7 +227,7 @@ Ejemplo cuando `fecha_inicio` es demasiado cercana:
 - Activacion:
   - `DB_MODE=sqlite`
   - `SQLITE_DB_PATH` (opcional, default `runconnect.sqlite` en el root)
-  - `LOCAL_ORGANIZER_ID` (ej: `1`) o header `x-organizer-id`
+    - `LOCAL_ORGANIZER_EMAIL` (ej: `local@runconnect.test`) o header `x-organizer-email`
 
 - Flujo:
   - El selector en `services/entrenamientoService.ts` carga SQLite.
@@ -245,7 +241,7 @@ Ejemplo cuando `fecha_inicio` es demasiado cercana:
 npm install
 node scripts/init-sqlite.mjs
 $env:DB_MODE="sqlite"
-$env:LOCAL_ORGANIZER_ID="1"
+$env:LOCAL_ORGANIZER_EMAIL="local@runconnect.test"
 # optional: $env:SQLITE_DB_PATH="C:\Users\Usuario\Downloads\ProyectosGit\RunConnect\runconnect.sqlite"
 npm run dev
 node scripts/test-entrenamientos.mjs

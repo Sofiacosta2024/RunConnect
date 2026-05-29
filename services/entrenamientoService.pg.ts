@@ -5,7 +5,7 @@ import {
   ValidationError,
 } from "@/lib/api-errors";
 import { db } from "@/lib/db";
-import { entrenamiento, deporte, nivelEntrenamiento } from "@/db/schema";
+import { entrenamiento, deporte } from "@/db/schema";
 import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
 import { eq, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -21,18 +21,16 @@ type LocationInput =
 
 export type EntrenamientoListItem = {
   codigoEntrenamiento: number;
-  idOrganizador: number;
+  emailOrganizador: string;
   codigoDeporte: string;
   descripcionDeporte: string | null;
   fechaInicio: string;
   fechaFin: string;
-  fechaLimiteInscripcion: string | null;
   estado: string;
-  ubicacion: string | null;
+  puntoEncuentro: string | null;
   distanciaEstimada: number | null;
   ritmoObjetivo: string | null;
-  codigoNivel: string;
-  descripcionNivel: string | null;
+  nivel: string;
   cupoMaximo: number | null;
 };
 
@@ -40,12 +38,11 @@ export type EntrenamientoInput = {
   codigoDeporte: string;
   fechaInicio: string;
   fechaFin: string;
-  fechaLimiteInscripcion?: string | null;
   estado: string;
-  ubicacion: LocationInput;
+  puntoEncuentro: LocationInput;
   distanciaEstimada?: number | null;
   ritmoObjetivo?: string | null;
-  codigoNivel: string;
+  nivel: string;
   cupoMaximo?: number | null;
 };
 
@@ -53,18 +50,16 @@ type EntrenamientoChatInput = Omit<EntrenamientoInput, "estado">;
 
 type EntrenamientoRow = {
   codigoEntrenamiento: number;
-  idOrganizador: number;
+  emailOrganizador: string;
   codigoDeporte: string;
   descripcionDeporte: string | null;
   fechaInicio: string;
   fechaFin: string;
-  fechaLimiteInscripcion: string | null;
   estado: string;
-  ubicacion: string | null;
+  puntoEncuentro: string | null;
   distanciaEstimada: string | number | null;
   ritmoObjetivo: string | null;
-  codigoNivel: string;
-  descripcionNivel: string | null;
+  nivel: string;
   cupoMaximo: number | string | null;
 };
 
@@ -79,18 +74,16 @@ function toNumberOrNull(value: string | number | null) {
 function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
   return {
     codigoEntrenamiento: Number(row.codigoEntrenamiento),
-    idOrganizador: Number(row.idOrganizador),
+    emailOrganizador: row.emailOrganizador,
     codigoDeporte: row.codigoDeporte,
     descripcionDeporte: row.descripcionDeporte,
     fechaInicio: row.fechaInicio,
     fechaFin: row.fechaFin,
-    fechaLimiteInscripcion: row.fechaLimiteInscripcion,
     estado: row.estado,
-    ubicacion: row.ubicacion,
+    puntoEncuentro: row.puntoEncuentro,
     distanciaEstimada: toNumberOrNull(row.distanciaEstimada),
     ritmoObjetivo: row.ritmoObjetivo,
-    codigoNivel: row.codigoNivel,
-    descripcionNivel: row.descripcionNivel,
+    nivel: row.nivel,
     cupoMaximo: toNumberOrNull(row.cupoMaximo),
   };
 }
@@ -105,6 +98,8 @@ const entrenamientoEstados = new Set([
   "cancelado",
   "finalizado",
 ]);
+
+const entrenamientoNiveles = new Set(["principiante", "intermedio", "avanzado"]);
 
 function resolveEstado(estado: string) {
   const normalized = estado.trim().toLowerCase();
@@ -122,9 +117,25 @@ function resolveEstado(estado: string) {
   return normalized;
 }
 
-function normalizeLocation(ubicacion: LocationInput) {
-  if (typeof ubicacion === "string") {
-    const trimmed = ubicacion.trim();
+function resolveNivel(nivel: string) {
+  const normalized = nivel.trim().toLowerCase();
+
+  if (!normalized) {
+    throw new EntrenamientoValidationError("nivel es obligatorio.");
+  }
+
+  if (!entrenamientoNiveles.has(normalized)) {
+    throw new EntrenamientoValidationError(
+      "nivel debe ser uno de: principiante, intermedio, avanzado."
+    );
+  }
+
+  return normalized;
+}
+
+function normalizePuntoEncuentro(puntoEncuentro: LocationInput) {
+  if (typeof puntoEncuentro === "string") {
+    const trimmed = puntoEncuentro.trim();
 
     if (!trimmed) {
       throw new EntrenamientoValidationError("ubicacion es obligatoria.");
@@ -133,8 +144,8 @@ function normalizeLocation(ubicacion: LocationInput) {
     return trimmed;
   }
 
-  const latitude = ubicacion.latitude ?? ubicacion.lat;
-  const longitude = ubicacion.longitude ?? ubicacion.lng;
+  const latitude = puntoEncuentro.latitude ?? puntoEncuentro.lat;
+  const longitude = puntoEncuentro.longitude ?? puntoEncuentro.lng;
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new EntrenamientoValidationError("ubicacion debe contener coordenadas validas.");
@@ -148,9 +159,7 @@ function validateInput(input: EntrenamientoInput) {
     throw new EntrenamientoValidationError("codigoDeporte es obligatorio.");
   }
 
-  if (!input.codigoNivel?.trim()) {
-    throw new EntrenamientoValidationError("codigoNivel es obligatorio.");
-  }
+  const nivel = resolveNivel(input.nivel);
 
   const fechaInicioRaw = input.fechaInicio?.trim();
   const fechaFinRaw = input.fechaFin?.trim();
@@ -166,7 +175,6 @@ function validateInput(input: EntrenamientoInput) {
   const fechasValidation = validarFechasEntrenamiento({
     fechaInicio: fechaInicioRaw,
     fechaFin: fechaFinRaw,
-    fechaLimiteInscripcion: input.fechaLimiteInscripcion ?? null,
     now: new Date(),
   });
 
@@ -176,8 +184,7 @@ function validateInput(input: EntrenamientoInput) {
     );
   }
 
-  const { inicio, fin, limite } = fechasValidation.fechas;
-  const limiteDb = limite ? limite.toISOString() : null;
+  const { inicio, fin } = fechasValidation.fechas;
 
   const estado = resolveEstado(input.estado);
 
@@ -202,8 +209,8 @@ function validateInput(input: EntrenamientoInput) {
   return {
     fechaInicioDb: inicio.toISOString(),
     fechaFinDb: fin.toISOString(),
-    fechaLimiteInscripcionDb: limiteDb,
     estado,
+    nivel,
   };
 }
 
@@ -234,23 +241,20 @@ export async function getAll() {
     const rows = await db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-        idOrganizador: entrenamiento.idOrganizador,
+        emailOrganizador: entrenamiento.emailOrganizador,
         codigoDeporte: entrenamiento.codigoDeporte,
         descripcionDeporte: deporte.descripcionDeporte,
         fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
         fechaFin: sql`${entrenamiento.fechaFin}::text`,
-        fechaLimiteInscripcion: sql`${entrenamiento.fechaLimiteInscripcion}::text`,
         estado: entrenamiento.estado,
-        ubicacion: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
         distanciaEstimada: entrenamiento.distanciaEstimada,
         ritmoObjetivo: entrenamiento.ritmoObjetivo,
-        codigoNivel: entrenamiento.codigoNivel,
-        descripcionNivel: nivelEntrenamiento.descripcionNivel,
+        nivel: entrenamiento.nivel,
         cupoMaximo: entrenamiento.cupoMaximo,
       })
       .from(entrenamiento)
       .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
-      .innerJoin(nivelEntrenamiento, eq(nivelEntrenamiento.nivel, entrenamiento.codigoNivel))
       .orderBy(desc(entrenamiento.fechaInicio), desc(entrenamiento.codigoEntrenamiento));
 
     return rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow));
@@ -268,23 +272,20 @@ export async function getById(codigoEntrenamiento: number) {
     const rows = await db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-        idOrganizador: entrenamiento.idOrganizador,
+        emailOrganizador: entrenamiento.emailOrganizador,
         codigoDeporte: entrenamiento.codigoDeporte,
         descripcionDeporte: deporte.descripcionDeporte,
         fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
         fechaFin: sql`${entrenamiento.fechaFin}::text`,
-        fechaLimiteInscripcion: sql`${entrenamiento.fechaLimiteInscripcion}::text`,
         estado: entrenamiento.estado,
-        ubicacion: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
         distanciaEstimada: entrenamiento.distanciaEstimada,
         ritmoObjetivo: entrenamiento.ritmoObjetivo,
-        codigoNivel: entrenamiento.codigoNivel,
-        descripcionNivel: nivelEntrenamiento.descripcionNivel,
+        nivel: entrenamiento.nivel,
         cupoMaximo: entrenamiento.cupoMaximo,
       })
       .from(entrenamiento)
       .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
-      .innerJoin(nivelEntrenamiento, eq(nivelEntrenamiento.nivel, entrenamiento.codigoNivel))
       .where(eq(entrenamiento.codigoEntrenamiento, codigoEntrenamiento))
       .limit(1);
 
@@ -296,41 +297,40 @@ export async function getById(codigoEntrenamiento: number) {
   }
 }
 
-export async function create(idOrganizador: number, input: EntrenamientoInput) {
-  if (!isFinitePositiveInteger(idOrganizador)) {
-    throw new ValidationError("idOrganizador debe ser un entero positivo.");
+export async function create(emailOrganizador: string, input: EntrenamientoInput) {
+  const organizerEmail = emailOrganizador?.trim();
+
+  if (!organizerEmail) {
+    throw new ValidationError("emailOrganizador es obligatorio.");
   }
 
-  const { fechaInicioDb, fechaFinDb, fechaLimiteInscripcionDb, estado } =
-    validateInput(input);
+  const { fechaInicioDb, fechaFinDb, estado, nivel } = validateInput(input);
 
-  const ubicacion = normalizeLocation(input.ubicacion);
+  const puntoEncuentro = normalizePuntoEncuentro(input.puntoEncuentro);
 
   try {
     const insertResult = await db.execute(sql`
       INSERT INTO "ENTRENAMIENTO" (
-        id_organizador,
+        email_organizador,
         codigo_deporte,
         fecha_inicio,
         fecha_fin,
-        fecha_limite_inscripcion,
         estado,
         punto_de_encuentro,
         distancia_estimada,
         ritmo_objetivo,
-        codigo_nivel,
+        nivel,
         cupo_maximo
       ) VALUES (
-        ${idOrganizador},
+        ${organizerEmail},
         ${input.codigoDeporte.trim()},
         ${fechaInicioDb}::timestamptz,
         ${fechaFinDb}::timestamptz,
-        ${fechaLimiteInscripcionDb}::timestamptz,
         ${estado},
-        ST_GeogFromText(${ubicacion}),
+        ST_GeogFromText(${puntoEncuentro}),
         ${input.distanciaEstimada ?? null},
         ${input.ritmoObjetivo?.trim() ?? null},
-        ${input.codigoNivel.trim()},
+        ${nivel},
         ${input.cupoMaximo ?? null}
       ) RETURNING codigo_entrenamiento
     `);
@@ -344,62 +344,60 @@ export async function create(idOrganizador: number, input: EntrenamientoInput) {
 }
 
 export async function crearEntrenamientoConChat(
-  idOrganizador: number,
+  emailOrganizador: string,
   input: EntrenamientoChatInput
 ) {
-  if (!isFinitePositiveInteger(idOrganizador)) {
-    throw new ValidationError("idOrganizador debe ser un entero positivo.");
+  const organizerEmail = emailOrganizador?.trim();
+
+  if (!organizerEmail) {
+    throw new ValidationError("emailOrganizador es obligatorio.");
   }
 
-  const { fechaInicioDb, fechaFinDb, fechaLimiteInscripcionDb } = validateInput({
+  const { fechaInicioDb, fechaFinDb, nivel } = validateInput({
     ...input,
     estado: "abierto",
   });
 
-  const ubicacion = normalizeLocation(input.ubicacion);
+  const puntoEncuentro = normalizePuntoEncuentro(input.puntoEncuentro);
   const welcomeMessage = "Entrenamiento creado. El chat esta disponible.";
 
   try {
     const insertedId = await db.transaction(async (tx) => {
-      // Usamos transaccion para asegurar que entrenamiento, participacion y mensaje
+      // Usamos transaccion para asegurar que entrenamiento, usuario_entrenamiento y mensaje
       // se creen juntos o se reviertan en caso de error.
-      const organizerResult = await tx.execute(sql`
+      const userResult = await tx.execute(sql`
         SELECT email
-        FROM "ORGANIZADOR"
-        WHERE id_organizador = ${idOrganizador}
+        FROM "USUARIO"
+        WHERE email = ${organizerEmail}
         LIMIT 1
       `);
 
-      const organizerEmail = organizerResult.rows?.[0]?.email as string | undefined;
-
-      if (!organizerEmail) {
-        throw new NotFoundError("Organizador no encontrado.");
+      if (!userResult.rows?.[0]?.email) {
+        throw new NotFoundError("Usuario no encontrado.");
       }
 
       const insertResult = await tx.execute(sql`
         INSERT INTO "ENTRENAMIENTO" (
-          id_organizador,
+          email_organizador,
           codigo_deporte,
           fecha_inicio,
           fecha_fin,
-          fecha_limite_inscripcion,
           estado,
           punto_de_encuentro,
           distancia_estimada,
           ritmo_objetivo,
-          codigo_nivel,
+          nivel,
           cupo_maximo
         ) VALUES (
-          ${idOrganizador},
+          ${organizerEmail},
           ${input.codigoDeporte.trim()},
           ${fechaInicioDb}::timestamptz,
           ${fechaFinDb}::timestamptz,
-          ${fechaLimiteInscripcionDb}::timestamptz,
           ${"abierto"},
-          ST_GeogFromText(${ubicacion}),
+          ST_GeogFromText(${puntoEncuentro}),
           ${input.distanciaEstimada ?? null},
           ${input.ritmoObjetivo?.trim() ?? null},
-          ${input.codigoNivel.trim()},
+          ${nivel},
           ${input.cupoMaximo ?? null}
         ) RETURNING codigo_entrenamiento
       `);
@@ -412,14 +410,26 @@ export async function crearEntrenamientoConChat(
       const horaMensaje = now.toISOString().slice(11, 19);
 
       await tx.execute(sql`
-        INSERT INTO "PARTICIPACION" (
-          email,
+        INSERT INTO "USUARIO_ENTRENAMIENTO" (
           codigo_entrenamiento,
-          fecha_inscripcion
+          email,
+          codigo_calificacion,
+          rol
         ) VALUES (
-          ${organizerEmail},
           ${codigoEntrenamiento},
-          ${now.toISOString()}::timestamptz
+          ${organizerEmail},
+          ${null},
+          ${"organizador"}
+        )
+      `);
+
+      await tx.execute(sql`
+        INSERT INTO "USUARIO_MENSAJE_ENTRENAMIENTO" (
+          codigo_entrenamiento,
+          email
+        ) VALUES (
+          ${codigoEntrenamiento},
+          ${organizerEmail}
         )
       `);
 
@@ -462,10 +472,9 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");
   }
 
-  const { fechaInicioDb, fechaFinDb, fechaLimiteInscripcionDb, estado } =
-    validateInput(input);
+  const { fechaInicioDb, fechaFinDb, estado, nivel } = validateInput(input);
 
-  const ubicacion = normalizeLocation(input.ubicacion);
+  const puntoEncuentro = normalizePuntoEncuentro(input.puntoEncuentro);
 
   try {
     const updateResult = await db.execute(sql`
@@ -473,12 +482,11 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
         codigo_deporte = ${input.codigoDeporte.trim()},
         fecha_inicio = ${fechaInicioDb}::timestamptz,
         fecha_fin = ${fechaFinDb}::timestamptz,
-        fecha_limite_inscripcion = ${fechaLimiteInscripcionDb}::timestamptz,
         estado = ${estado},
-        punto_de_encuentro = ST_GeogFromText(${ubicacion}),
+        punto_de_encuentro = ST_GeogFromText(${puntoEncuentro}),
         distancia_estimada = ${input.distanciaEstimada ?? null},
         ritmo_objetivo = ${input.ritmoObjetivo?.trim() ?? null},
-        codigo_nivel = ${input.codigoNivel.trim()},
+        nivel = ${nivel},
         cupo_maximo = ${input.cupoMaximo ?? null}
       WHERE codigo_entrenamiento = ${codigoEntrenamiento}
       RETURNING codigo_entrenamiento

@@ -6,7 +6,7 @@ import {
   toApiErrorResponse,
 } from "@/lib/api-errors";
 import type { EntrenamientoCreateDto } from "@/lib/entrenamiento-dto";
-import { getAuthenticatedOrganizerId } from "@/lib/organizer-auth";
+import { getAuthenticatedOrganizerEmail } from "@/lib/organizer-auth";
 import { crearEntrenamientoConChat, getAll } from "@/services/entrenamientoService";
 
 export const runtime = "nodejs";
@@ -41,21 +41,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const organizerId = await getAuthenticatedOrganizerId(request.headers);
+    const organizerEmail = await getAuthenticatedOrganizerEmail(request.headers);
     const body = await readJsonBody(request);
     const fechaInicio = body.fechaInicio ?? body.fecha_inicio;
     const fechaFin = body.fechaFin ?? body.fecha_fin;
-    const fechaLimiteInscripcion = body.fechaLimiteInscripcion ?? body.fecha_limite_inscripcion;
+    const nivel = body.nivel ?? body.codigoNivel ?? body.codigo_nivel;
 
     const dto: EntrenamientoCreateDto = {
       codigoDeporte: String(body.codigoDeporte ?? ""),
       fechaInicio:
         fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
       fechaFin: fechaFin === undefined || fechaFin === null ? "" : String(fechaFin),
-      fechaLimiteInscripcion:
-        fechaLimiteInscripcion === undefined || fechaLimiteInscripcion === null
-          ? null
-          : String(fechaLimiteInscripcion),
       estado: String(body.estado ?? "") as EntrenamientoCreateDto["estado"],
       puntoEncuentro: parseBodyLocation(body) ?? "",
       distanciaEstimada:
@@ -66,7 +62,7 @@ export async function POST(request: Request) {
         body.ritmoObjetivo === undefined || body.ritmoObjetivo === null
           ? null
           : String(body.ritmoObjetivo),
-      codigoNivel: String(body.codigoNivel ?? ""),
+      nivel: nivel === undefined || nivel === null ? "" : String(nivel),
       cupoMaximo:
         body.cupoMaximo === undefined || body.cupoMaximo === null
           ? null
@@ -79,15 +75,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const entrenamiento = await crearEntrenamientoConChat(organizerId, {
+    const entrenamiento = await crearEntrenamientoConChat(organizerEmail, {
       codigoDeporte: dto.codigoDeporte,
       fechaInicio: dto.fechaInicio,
       fechaFin: dto.fechaFin,
-      fechaLimiteInscripcion: dto.fechaLimiteInscripcion ?? null,
-      ubicacion: dto.puntoEncuentro,
+      puntoEncuentro: dto.puntoEncuentro,
       distanciaEstimada: dto.distanciaEstimada,
       ritmoObjetivo: dto.ritmoObjetivo,
-      codigoNivel: dto.codigoNivel,
+      nivel: dto.nivel,
       cupoMaximo: dto.cupoMaximo,
     });
 

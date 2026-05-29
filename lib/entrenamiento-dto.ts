@@ -11,11 +11,10 @@ export type EntrenamientoCreateDto = {
   codigoDeporte: string;
   fechaInicio: string;
   fechaFin: string;
-  fechaLimiteInscripcion?: string | null;
   estado: "abierto" | "cerrado" | "cancelado" | "finalizado";
   puntoEncuentro: PuntoEncuentroInput;
   distanciaEstimada?: number | null;
   ritmoObjetivo?: string | null;
-  codigoNivel: string;
+  nivel: string;
   cupoMaximo?: number | null;
 };

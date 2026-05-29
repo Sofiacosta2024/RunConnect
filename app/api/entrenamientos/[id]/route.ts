@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { ForbiddenError, NotFoundError, ValidationError, toApiErrorResponse } from "@/lib/api-errors";
-import { getAuthenticatedOrganizerId } from "@/lib/organizer-auth";
+import { getAuthenticatedOrganizerEmail } from "@/lib/organizer-auth";
 import { getById, remove, update } from "@/services/entrenamientoService";
 
 export const runtime = "nodejs";
@@ -35,18 +35,18 @@ async function readJsonBody(request: Request) {
 }
 
 async function authorizeTraining(request: Request, codigoEntrenamiento: number) {
-  const organizerId = await getAuthenticatedOrganizerId(request.headers);
+  const organizerEmail = await getAuthenticatedOrganizerEmail(request.headers);
   const entrenamiento = await getById(codigoEntrenamiento);
 
   if (!entrenamiento) {
     throw new NotFoundError("Entrenamiento no encontrado.");
   }
 
-  if (entrenamiento.idOrganizador !== organizerId) {
+  if (entrenamiento.emailOrganizador !== organizerEmail) {
     throw new ForbiddenError();
   }
 
-  return organizerId;
+  return organizerEmail;
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -75,25 +75,21 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const body = await readJsonBody(request);
     const fechaInicio = body.fechaInicio ?? body.fecha_inicio;
     const fechaFin = body.fechaFin ?? body.fecha_fin;
-    const fechaLimiteInscripcion = body.fechaLimiteInscripcion ?? body.fecha_limite_inscripcion;
+    const nivel = body.nivel ?? body.codigoNivel ?? body.codigo_nivel;
 
     const entrenamiento = await update(codigoEntrenamiento, {
       codigoDeporte: String(body.codigoDeporte ?? ""),
       fechaInicio:
         fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
       fechaFin: fechaFin === undefined || fechaFin === null ? "" : String(fechaFin),
-      fechaLimiteInscripcion:
-        fechaLimiteInscripcion === undefined || fechaLimiteInscripcion === null
-          ? null
-          : String(fechaLimiteInscripcion),
       estado: String(body.estado ?? ""),
-      ubicacion: parseBodyLocation(body) ?? "",
+      puntoEncuentro: parseBodyLocation(body) ?? "",
       distanciaEstimada:
         body.distanciaEstimada === undefined || body.distanciaEstimada === null
           ? null
           : Number(body.distanciaEstimada),
       ritmoObjetivo: body.ritmoObjetivo === undefined || body.ritmoObjetivo === null ? null : String(body.ritmoObjetivo),
-      codigoNivel: String(body.codigoNivel ?? ""),
+      nivel: nivel === undefined || nivel === null ? "" : String(nivel),
       cupoMaximo:
         body.cupoMaximo === undefined || body.cupoMaximo === null ? null : Number(body.cupoMaximo),
     });

@@ -2,8 +2,8 @@
  * Entrenamiento + Chat Integration Tests (RN-03)
  *
  * Validates:
- * - Happy path creates entrenamiento, participacion, and mensaje
- * - Atomicity: rollback when PARTICIPACION insert fails
+ * - Happy path creates entrenamiento, usuario_entrenamiento, usuario_mensaje_entrenamiento, and mensaje
+ * - Atomicity: rollback when USUARIO_ENTRENAMIENTO insert fails
  * - Business rules for fechas
  */
 
@@ -40,21 +40,17 @@ async function test(name: string, fn: () => Promise<void>) {
 function resetDatabase() {
   db.exec(`
     DROP TABLE IF EXISTS "MENSAJE";
-    DROP TABLE IF EXISTS "PARTICIPACION";
+    DROP TABLE IF EXISTS "USUARIO_MENSAJE_ENTRENAMIENTO";
+    DROP TABLE IF EXISTS "USUARIO_ENTRENAMIENTO";
+    DROP TABLE IF EXISTS "SOLICITUD";
+    DROP TABLE IF EXISTS "GRUPO_SOLICITUD";
     DROP TABLE IF EXISTS "ENTRENAMIENTO";
-    DROP TABLE IF EXISTS "ORGANIZADOR";
     DROP TABLE IF EXISTS "USUARIO";
-    DROP TABLE IF EXISTS "NIVEL_ENTRENAMIENTO";
     DROP TABLE IF EXISTS "DEPORTE";
 
     CREATE TABLE "DEPORTE" (
       nombre TEXT PRIMARY KEY,
       descripcion_deporte TEXT
-    );
-
-    CREATE TABLE "NIVEL_ENTRENAMIENTO" (
-      nivel TEXT PRIMARY KEY,
-      descripcion_nivel TEXT
     );
 
     CREATE TABLE "USUARIO" (
@@ -66,35 +62,37 @@ function resetDatabase() {
       FOREIGN KEY (codigo_deporte) REFERENCES "DEPORTE"(nombre)
     );
 
-    CREATE TABLE "ORGANIZADOR" (
-      id_organizador INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL,
-      FOREIGN KEY (email) REFERENCES "USUARIO"(email)
-    );
-
     CREATE TABLE "ENTRENAMIENTO" (
       codigo_entrenamiento INTEGER PRIMARY KEY AUTOINCREMENT,
-      id_organizador INTEGER NOT NULL,
+      email_organizador TEXT NOT NULL,
       codigo_deporte TEXT NOT NULL,
       fecha_inicio TEXT NOT NULL,
       fecha_fin TEXT NOT NULL,
-      fecha_limite_inscripcion TEXT,
       estado TEXT NOT NULL DEFAULT 'abierto',
       punto_de_encuentro TEXT NOT NULL,
       distancia_estimada REAL,
       ritmo_objetivo TEXT,
-      codigo_nivel TEXT NOT NULL,
+      nivel TEXT NOT NULL,
       cupo_maximo INTEGER,
-      FOREIGN KEY (id_organizador) REFERENCES "ORGANIZADOR"(id_organizador),
+      FOREIGN KEY (email_organizador) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_deporte) REFERENCES "DEPORTE"(nombre),
-      FOREIGN KEY (codigo_nivel) REFERENCES "NIVEL_ENTRENAMIENTO"(nivel)
+      CHECK (nivel IN ('principiante', 'intermedio', 'avanzado'))
     );
 
-    CREATE TABLE "PARTICIPACION" (
-      email TEXT NOT NULL,
+    CREATE TABLE "USUARIO_ENTRENAMIENTO" (
       codigo_entrenamiento INTEGER NOT NULL,
-      fecha_inscripcion TEXT NOT NULL,
-      PRIMARY KEY (email, codigo_entrenamiento),
+      email TEXT NOT NULL,
+      codigo_calificacion INTEGER,
+      rol TEXT NOT NULL,
+      PRIMARY KEY (codigo_entrenamiento, email),
+      FOREIGN KEY (email) REFERENCES "USUARIO"(email),
+      FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
+    );
+
+    CREATE TABLE "USUARIO_MENSAJE_ENTRENAMIENTO" (
+      codigo_entrenamiento INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      PRIMARY KEY (codigo_entrenamiento, email),
       FOREIGN KEY (email) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
     );
@@ -105,9 +103,28 @@ function resetDatabase() {
       codigo_entrenamiento INTEGER NOT NULL,
       email TEXT NOT NULL,
       contenido TEXT NOT NULL,
-      PRIMARY KEY (fecha, hora),
+      PRIMARY KEY (fecha, hora, email),
+      FOREIGN KEY (codigo_entrenamiento, email)
+        REFERENCES "USUARIO_MENSAJE_ENTRENAMIENTO"(codigo_entrenamiento, email)
+    );
+
+    CREATE TABLE "SOLICITUD" (
+      codigo_solicitud INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      codigo_entrenamiento INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pendiente',
+      fecha TEXT NOT NULL,
+      FOREIGN KEY (email) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento),
-      FOREIGN KEY (email) REFERENCES "USUARIO"(email)
+      CHECK (estado IN ('aprobado', 'rechazado', 'pendiente'))
+    );
+
+    CREATE TABLE "GRUPO_SOLICITUD" (
+      codigo_entrenamiento INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      PRIMARY KEY (codigo_entrenamiento, email),
+      FOREIGN KEY (email) REFERENCES "USUARIO"(email),
+      FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
     );
   `);
 
@@ -115,15 +132,8 @@ function resetDatabase() {
     'INSERT INTO "DEPORTE" (nombre, descripcion_deporte) VALUES (?, ?)'
   ).run("RUN", "Running");
   db.prepare(
-    'INSERT INTO "NIVEL_ENTRENAMIENTO" (nivel, descripcion_nivel) VALUES (?, ?)'
-  ).run("INTERMEDIO", "Nivel intermedio");
-  db.prepare(
     'INSERT INTO "USUARIO" (email, nombre, foto_perfil, ubicacion, codigo_deporte) VALUES (?, ?, ?, ?, ?)'
   ).run("local@runconnect.test", "Local Organizer", null, "Buenos Aires", "RUN");
-  db.prepare('INSERT INTO "ORGANIZADOR" (id_organizador, email) VALUES (?, ?)').run(
-    1,
-    "local@runconnect.test"
-  );
 }
 
 function countRows(table: string) {
@@ -143,17 +153,14 @@ async function main() {
     const now = new Date();
     const startIso = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
     const endIso = new Date(new Date(startIso).getTime() + 2 * 60 * 60 * 1000).toISOString();
-    const limitIso = new Date(new Date(startIso).getTime() - 15 * 60 * 1000).toISOString();
-
-    const entrenamiento = await crearEntrenamientoConChat(1, {
+    const entrenamiento = await crearEntrenamientoConChat("local@runconnect.test", {
       codigoDeporte: "RUN",
       fechaInicio: startIso,
       fechaFin: endIso,
-      fechaLimiteInscripcion: limitIso,
-      ubicacion: "POINT(-58.3816 -34.6037)",
+      puntoEncuentro: "POINT(-58.3816 -34.6037)",
       distanciaEstimada: 5.0,
       ritmoObjetivo: "5:30/km",
-      codigoNivel: "INTERMEDIO",
+      nivel: "intermedio",
       cupoMaximo: 20,
     });
 
@@ -165,8 +172,11 @@ async function main() {
     if (countRows("ENTRENAMIENTO") !== 1) {
       throw new Error("ENTRENAMIENTO debe tener 1 registro.");
     }
-    if (countRows("PARTICIPACION") !== 1) {
-      throw new Error("PARTICIPACION debe tener 1 registro.");
+    if (countRows("USUARIO_ENTRENAMIENTO") !== 1) {
+      throw new Error("USUARIO_ENTRENAMIENTO debe tener 1 registro.");
+    }
+    if (countRows("USUARIO_MENSAJE_ENTRENAMIENTO") !== 1) {
+      throw new Error("USUARIO_MENSAJE_ENTRENAMIENTO debe tener 1 registro.");
     }
     if (countRows("MENSAJE") !== 1) {
       throw new Error("MENSAJE debe tener 1 registro.");
@@ -174,15 +184,15 @@ async function main() {
 
     const participacion = db
       .prepare(
-        'SELECT email, codigo_entrenamiento FROM "PARTICIPACION" LIMIT 1'
+        'SELECT email, codigo_entrenamiento FROM "USUARIO_ENTRENAMIENTO" LIMIT 1'
       )
       .get() as { email: string; codigo_entrenamiento: number };
 
     if (participacion.email !== "local@runconnect.test") {
-      throw new Error("El organizador debe quedar en PARTICIPACION.");
+      throw new Error("El organizador debe quedar en USUARIO_ENTRENAMIENTO.");
     }
     if (participacion.codigo_entrenamiento !== entrenamiento.codigoEntrenamiento) {
-      throw new Error("PARTICIPACION debe vincularse al entrenamiento creado.");
+      throw new Error("USUARIO_ENTRENAMIENTO debe vincularse al entrenamiento creado.");
     }
 
     const mensaje = db
@@ -194,11 +204,11 @@ async function main() {
     }
   });
 
-  await test("Atomicity: rollback when PARTICIPACION fails", async () => {
+  await test("Atomicity: rollback when USUARIO_ENTRENAMIENTO fails", async () => {
     // QA: Atomicidad y consistencia transaccional.
     resetDatabase();
 
-    db.exec('DROP TABLE IF EXISTS "PARTICIPACION"');
+    db.exec('DROP TABLE IF EXISTS "USUARIO_ENTRENAMIENTO"');
 
     const now = new Date();
     const startIso = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
@@ -206,15 +216,14 @@ async function main() {
 
     let didThrow = false;
     try {
-      await crearEntrenamientoConChat(1, {
+      await crearEntrenamientoConChat("local@runconnect.test", {
         codigoDeporte: "RUN",
         fechaInicio: startIso,
         fechaFin: endIso,
-        fechaLimiteInscripcion: null,
-        ubicacion: "POINT(-58.3816 -34.6037)",
+        puntoEncuentro: "POINT(-58.3816 -34.6037)",
         distanciaEstimada: 5.0,
         ritmoObjetivo: "5:30/km",
-        codigoNivel: "INTERMEDIO",
+        nivel: "intermedio",
         cupoMaximo: 20,
       });
     } catch {
@@ -222,7 +231,7 @@ async function main() {
     }
 
     if (!didThrow) {
-      throw new Error("Se esperaba un error al insertar PARTICIPACION.");
+      throw new Error("Se esperaba un error al insertar USUARIO_ENTRENAMIENTO.");
     }
 
     if (countRows("ENTRENAMIENTO") !== 0) {
@@ -240,15 +249,14 @@ async function main() {
 
     let error: unknown;
     try {
-      await crearEntrenamientoConChat(1, {
+      await crearEntrenamientoConChat("local@runconnect.test", {
         codigoDeporte: "RUN",
         fechaInicio: tooSoonIso,
         fechaFin: endIso,
-        fechaLimiteInscripcion: null,
-        ubicacion: "POINT(-58.3816 -34.6037)",
+        puntoEncuentro: "POINT(-58.3816 -34.6037)",
         distanciaEstimada: 5.0,
         ritmoObjetivo: "5:30/km",
-        codigoNivel: "INTERMEDIO",
+        nivel: "intermedio",
         cupoMaximo: 20,
       });
     } catch (err) {
@@ -273,15 +281,14 @@ async function main() {
 
     let error: unknown;
     try {
-      await crearEntrenamientoConChat(1, {
+      await crearEntrenamientoConChat("local@runconnect.test", {
         codigoDeporte: "RUN",
         fechaInicio: startIso,
         fechaFin: endIso,
-        fechaLimiteInscripcion: null,
-        ubicacion: "POINT(-58.3816 -34.6037)",
+        puntoEncuentro: "POINT(-58.3816 -34.6037)",
         distanciaEstimada: 5.0,
         ritmoObjetivo: "5:30/km",
-        codigoNivel: "INTERMEDIO",
+        nivel: "intermedio",
         cupoMaximo: 20,
       });
     } catch (err) {
