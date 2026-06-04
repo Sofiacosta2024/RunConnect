@@ -2,7 +2,7 @@
  * Entrenamiento + Chat Integration Tests (RN-03)
  *
  * Validates:
- * - Happy path creates entrenamiento, usuario_entrenamiento, usuario_mensaje_entrenamiento, and mensaje
+ * - Happy path creates entrenamiento, usuario_entrenamiento, and mensaje
  * - Atomicity: rollback when USUARIO_ENTRENAMIENTO insert fails
  * - Business rules for fechas
  */
@@ -40,7 +40,6 @@ async function test(name: string, fn: () => Promise<void>) {
 function resetDatabase() {
   db.exec(`
     DROP TABLE IF EXISTS "MENSAJE";
-    DROP TABLE IF EXISTS "USUARIO_MENSAJE_ENTRENAMIENTO";
     DROP TABLE IF EXISTS "USUARIO_ENTRENAMIENTO";
     DROP TABLE IF EXISTS "SOLICITUD";
     DROP TABLE IF EXISTS "GRUPO_SOLICITUD";
@@ -64,7 +63,6 @@ function resetDatabase() {
 
     CREATE TABLE "ENTRENAMIENTO" (
       codigo_entrenamiento INTEGER PRIMARY KEY AUTOINCREMENT,
-      email_organizador TEXT NOT NULL,
       codigo_deporte TEXT NOT NULL,
       fecha_inicio TEXT NOT NULL,
       fecha_fin TEXT NOT NULL,
@@ -74,7 +72,6 @@ function resetDatabase() {
       ritmo_objetivo TEXT,
       nivel TEXT NOT NULL,
       cupo_maximo INTEGER,
-      FOREIGN KEY (email_organizador) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_deporte) REFERENCES "DEPORTE"(nombre),
       CHECK (nivel IN ('principiante', 'intermedio', 'avanzado'))
     );
@@ -82,30 +79,21 @@ function resetDatabase() {
     CREATE TABLE "USUARIO_ENTRENAMIENTO" (
       codigo_entrenamiento INTEGER NOT NULL,
       email TEXT NOT NULL,
-      codigo_calificacion INTEGER,
       rol TEXT NOT NULL,
       PRIMARY KEY (codigo_entrenamiento, email),
       FOREIGN KEY (email) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
     );
 
-    CREATE TABLE "USUARIO_MENSAJE_ENTRENAMIENTO" (
-      codigo_entrenamiento INTEGER NOT NULL,
-      email TEXT NOT NULL,
-      PRIMARY KEY (codigo_entrenamiento, email),
-      FOREIGN KEY (email) REFERENCES "USUARIO"(email),
-      FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
-    );
-
     CREATE TABLE "MENSAJE" (
+      codigo_mensaje INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT NOT NULL,
       hora TEXT NOT NULL,
       codigo_entrenamiento INTEGER NOT NULL,
       email TEXT NOT NULL,
       contenido TEXT NOT NULL,
-      PRIMARY KEY (fecha, hora, email),
       FOREIGN KEY (codigo_entrenamiento, email)
-        REFERENCES "USUARIO_MENSAJE_ENTRENAMIENTO"(codigo_entrenamiento, email)
+        REFERENCES "USUARIO_ENTRENAMIENTO"(codigo_entrenamiento, email)
     );
 
     CREATE TABLE "SOLICITUD" (
@@ -174,9 +162,6 @@ async function main() {
     }
     if (countRows("USUARIO_ENTRENAMIENTO") !== 1) {
       throw new Error("USUARIO_ENTRENAMIENTO debe tener 1 registro.");
-    }
-    if (countRows("USUARIO_MENSAJE_ENTRENAMIENTO") !== 1) {
-      throw new Error("USUARIO_MENSAJE_ENTRENAMIENTO debe tener 1 registro.");
     }
     if (countRows("MENSAJE") !== 1) {
       throw new Error("MENSAJE debe tener 1 registro.");

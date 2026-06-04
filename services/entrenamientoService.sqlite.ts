@@ -99,6 +99,7 @@ const entrenamientoEstados = new Set([
 ]);
 
 const entrenamientoNiveles = new Set(["principiante", "intermedio", "avanzado"]);
+const rolOrganizador = "organizador";
 
 function resolveEstado(estado: string) {
   const normalized = estado.trim().toLowerCase();
@@ -230,7 +231,7 @@ export async function getAll() {
         `
         SELECT
           e.codigo_entrenamiento AS codigoEntrenamiento,
-          e.email_organizador AS emailOrganizador,
+          ue.email AS emailOrganizador,
           e.codigo_deporte AS codigoDeporte,
           d.descripcion_deporte AS descripcionDeporte,
           e.fecha_inicio AS fechaInicio,
@@ -243,10 +244,13 @@ export async function getAll() {
           e.cupo_maximo AS cupoMaximo
         FROM "ENTRENAMIENTO" e
         INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+        INNER JOIN "USUARIO_ENTRENAMIENTO" ue
+          ON ue.codigo_entrenamiento = e.codigo_entrenamiento
+         AND ue.rol = ?
         ORDER BY e.fecha_inicio DESC, e.codigo_entrenamiento DESC
       `
       )
-      .all();
+      .all(rolOrganizador);
 
     return rows.map((row: EntrenamientoRow) => mapEntrenamiento(row));
   } catch (error) {
@@ -265,7 +269,7 @@ export async function getById(codigoEntrenamiento: number) {
         `
         SELECT
           e.codigo_entrenamiento AS codigoEntrenamiento,
-          e.email_organizador AS emailOrganizador,
+          ue.email AS emailOrganizador,
           e.codigo_deporte AS codigoDeporte,
           d.descripcion_deporte AS descripcionDeporte,
           e.fecha_inicio AS fechaInicio,
@@ -278,11 +282,14 @@ export async function getById(codigoEntrenamiento: number) {
           e.cupo_maximo AS cupoMaximo
         FROM "ENTRENAMIENTO" e
         INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+        INNER JOIN "USUARIO_ENTRENAMIENTO" ue
+          ON ue.codigo_entrenamiento = e.codigo_entrenamiento
+         AND ue.rol = ?
         WHERE e.codigo_entrenamiento = ?
         LIMIT 1
       `
       )
-      .get(codigoEntrenamiento) as EntrenamientoRow | undefined;
+      .get(rolOrganizador, codigoEntrenamiento) as EntrenamientoRow | undefined;
 
     return row ? mapEntrenamiento(row) : null;
   } catch (error) {
@@ -301,40 +308,63 @@ export async function create(emailOrganizador: string, input: EntrenamientoInput
   const puntoEncuentro = normalizePuntoEncuentro(input.puntoEncuentro);
 
   try {
-    const result = db
-      .prepare(
-        `
-        INSERT INTO "ENTRENAMIENTO" (
-          email_organizador,
-          codigo_deporte,
-          fecha_inicio,
-          fecha_fin,
-          estado,
-          punto_de_encuentro,
-          distancia_estimada,
-          ritmo_objetivo,
-          nivel,
-          cupo_maximo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-      )
-      .run(
-        organizerEmail,
-        input.codigoDeporte.trim(),
-        fechaInicioDb,
-        fechaFinDb,
-        estado,
-        puntoEncuentro,
-        input.distanciaEstimada ?? null,
-        input.ritmoObjetivo?.trim() ?? null,
-        nivel,
-        input.cupoMaximo ?? null
-      );
+    const transaction = db.transaction(() => {
+      const userRow = db
+        .prepare('SELECT email FROM "USUARIO" WHERE email = ? LIMIT 1')
+        .get(organizerEmail) as { email?: string } | undefined;
 
-    const insertedId = Number(result.lastInsertRowid);
-    if (!insertedId) throw new DatabaseUnavailableError();
+      if (!userRow?.email) {
+        throw new NotFoundError("Usuario no encontrado.");
+      }
+
+      const result = db
+        .prepare(
+          `
+          INSERT INTO "ENTRENAMIENTO" (
+            codigo_deporte,
+            fecha_inicio,
+            fecha_fin,
+            estado,
+            punto_de_encuentro,
+            distancia_estimada,
+            ritmo_objetivo,
+            nivel,
+            cupo_maximo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        )
+        .run(
+          input.codigoDeporte.trim(),
+          fechaInicioDb,
+          fechaFinDb,
+          estado,
+          puntoEncuentro,
+          input.distanciaEstimada ?? null,
+          input.ritmoObjetivo?.trim() ?? null,
+          nivel,
+          input.cupoMaximo ?? null
+        );
+
+      const codigoEntrenamiento = Number(result.lastInsertRowid);
+      if (!codigoEntrenamiento) throw new DatabaseUnavailableError();
+
+      db.prepare(
+        `
+        INSERT INTO "USUARIO_ENTRENAMIENTO" (
+          codigo_entrenamiento,
+          email,
+          rol
+        ) VALUES (?, ?, ?)
+      `
+      ).run(codigoEntrenamiento, organizerEmail, rolOrganizador);
+
+      return codigoEntrenamiento;
+    });
+
+    const insertedId = transaction();
     return getById(insertedId);
   } catch (error) {
+    if (error instanceof NotFoundError) throw error;
     throwDatabaseUnavailable(error, "create");
   }
 }
@@ -444,7 +474,6 @@ export async function crearEntrenamientoConChat(
         .prepare(
           `
           INSERT INTO "ENTRENAMIENTO" (
-            email_organizador,
             codigo_deporte,
             fecha_inicio,
             fecha_fin,
@@ -454,11 +483,10 @@ export async function crearEntrenamientoConChat(
             ritmo_objetivo,
             nivel,
             cupo_maximo
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         )
         .run(
-          organizerEmail,
           input.codigoDeporte.trim(),
           fechaInicioDb,
           fechaFinDb,
@@ -482,20 +510,10 @@ export async function crearEntrenamientoConChat(
         INSERT INTO "USUARIO_ENTRENAMIENTO" (
           codigo_entrenamiento,
           email,
-          codigo_calificacion,
           rol
-        ) VALUES (?, ?, ?, ?)
+        ) VALUES (?, ?, ?)
       `
-      ).run(codigoEntrenamiento, organizerEmail, null, "organizador");
-
-      db.prepare(
-        `
-        INSERT INTO "USUARIO_MENSAJE_ENTRENAMIENTO" (
-          codigo_entrenamiento,
-          email
-        ) VALUES (?, ?)
-      `
-      ).run(codigoEntrenamiento, organizerEmail);
+      ).run(codigoEntrenamiento, organizerEmail, rolOrganizador);
 
       db.prepare(
         `
