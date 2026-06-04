@@ -5,9 +5,9 @@ import {
   ValidationError,
 } from "@/lib/api-errors";
 import { db } from "@/lib/db";
-import { entrenamiento, deporte } from "@/db/schema";
+import { entrenamiento, deporte, usuarioEntrenamiento } from "@/db/schema";
 import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
-import { eq, desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 type LocationInput =
@@ -100,6 +100,7 @@ const entrenamientoEstados = new Set([
 ]);
 
 const entrenamientoNiveles = new Set(["principiante", "intermedio", "avanzado"]);
+const rolOrganizador = "organizador";
 
 function resolveEstado(estado: string) {
   const normalized = estado.trim().toLowerCase();
@@ -241,7 +242,7 @@ export async function getAll() {
     const rows = await db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-        emailOrganizador: entrenamiento.emailOrganizador,
+        emailOrganizador: usuarioEntrenamiento.email,
         codigoDeporte: entrenamiento.codigoDeporte,
         descripcionDeporte: deporte.descripcionDeporte,
         fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
@@ -255,6 +256,13 @@ export async function getAll() {
       })
       .from(entrenamiento)
       .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
       .orderBy(desc(entrenamiento.fechaInicio), desc(entrenamiento.codigoEntrenamiento));
 
     return rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow));
@@ -272,7 +280,7 @@ export async function getById(codigoEntrenamiento: number) {
     const rows = await db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-        emailOrganizador: entrenamiento.emailOrganizador,
+        emailOrganizador: usuarioEntrenamiento.email,
         codigoDeporte: entrenamiento.codigoDeporte,
         descripcionDeporte: deporte.descripcionDeporte,
         fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
@@ -286,6 +294,13 @@ export async function getById(codigoEntrenamiento: number) {
       })
       .from(entrenamiento)
       .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
       .where(eq(entrenamiento.codigoEntrenamiento, codigoEntrenamiento))
       .limit(1);
 
@@ -309,36 +324,63 @@ export async function create(emailOrganizador: string, input: EntrenamientoInput
   const puntoEncuentro = normalizePuntoEncuentro(input.puntoEncuentro);
 
   try {
-    const insertResult = await db.execute(sql`
-      INSERT INTO "ENTRENAMIENTO" (
-        email_organizador,
-        codigo_deporte,
-        fecha_inicio,
-        fecha_fin,
-        estado,
-        punto_de_encuentro,
-        distancia_estimada,
-        ritmo_objetivo,
-        nivel,
-        cupo_maximo
-      ) VALUES (
-        ${organizerEmail},
-        ${input.codigoDeporte.trim()},
-        ${fechaInicioDb}::timestamptz,
-        ${fechaFinDb}::timestamptz,
-        ${estado},
-        ST_GeogFromText(${puntoEncuentro}),
-        ${input.distanciaEstimada ?? null},
-        ${input.ritmoObjetivo?.trim() ?? null},
-        ${nivel},
-        ${input.cupoMaximo ?? null}
-      ) RETURNING codigo_entrenamiento
-    `);
+    const insertedId = await db.transaction(async (tx) => {
+      const userResult = await tx.execute(sql`
+        SELECT email
+        FROM "USUARIO"
+        WHERE email = ${organizerEmail}
+        LIMIT 1
+      `);
 
-    const insertedId = insertResult.rows?.[0]?.codigo_entrenamiento;
-    if (!insertedId) throw new DatabaseUnavailableError();
-    return getById(Number(insertedId));
+      if (!userResult.rows?.[0]?.email) {
+        throw new NotFoundError("Usuario no encontrado.");
+      }
+
+      const insertResult = await tx.execute(sql`
+        INSERT INTO "ENTRENAMIENTO" (
+          codigo_deporte,
+          fecha_inicio,
+          fecha_fin,
+          estado,
+          punto_de_encuentro,
+          distancia_estimada,
+          ritmo_objetivo,
+          nivel,
+          cupo_maximo
+        ) VALUES (
+          ${input.codigoDeporte.trim()},
+          ${fechaInicioDb}::timestamptz,
+          ${fechaFinDb}::timestamptz,
+          ${estado},
+          ST_GeogFromText(${puntoEncuentro}),
+          ${input.distanciaEstimada ?? null},
+          ${input.ritmoObjetivo?.trim() ?? null},
+          ${nivel},
+          ${input.cupoMaximo ?? null}
+        ) RETURNING codigo_entrenamiento
+      `);
+
+      const codigoEntrenamiento = insertResult.rows?.[0]?.codigo_entrenamiento;
+      if (!codigoEntrenamiento) throw new DatabaseUnavailableError();
+
+      await tx.execute(sql`
+        INSERT INTO "USUARIO_ENTRENAMIENTO" (
+          codigo_entrenamiento,
+          email,
+          rol
+        ) VALUES (
+          ${codigoEntrenamiento},
+          ${organizerEmail},
+          ${rolOrganizador}
+        )
+      `);
+
+      return Number(codigoEntrenamiento);
+    });
+
+    return getById(insertedId);
   } catch (error) {
+    if (error instanceof NotFoundError) throw error;
     throwDatabaseUnavailable(error, "create");
   }
 }
@@ -378,7 +420,6 @@ export async function crearEntrenamientoConChat(
 
       const insertResult = await tx.execute(sql`
         INSERT INTO "ENTRENAMIENTO" (
-          email_organizador,
           codigo_deporte,
           fecha_inicio,
           fecha_fin,
@@ -389,7 +430,6 @@ export async function crearEntrenamientoConChat(
           nivel,
           cupo_maximo
         ) VALUES (
-          ${organizerEmail},
           ${input.codigoDeporte.trim()},
           ${fechaInicioDb}::timestamptz,
           ${fechaFinDb}::timestamptz,
@@ -413,23 +453,11 @@ export async function crearEntrenamientoConChat(
         INSERT INTO "USUARIO_ENTRENAMIENTO" (
           codigo_entrenamiento,
           email,
-          codigo_calificacion,
           rol
         ) VALUES (
           ${codigoEntrenamiento},
           ${organizerEmail},
-          ${null},
-          ${"organizador"}
-        )
-      `);
-
-      await tx.execute(sql`
-        INSERT INTO "USUARIO_MENSAJE_ENTRENAMIENTO" (
-          codigo_entrenamiento,
-          email
-        ) VALUES (
-          ${codigoEntrenamiento},
-          ${organizerEmail}
+          ${rolOrganizador}
         )
       `);
 

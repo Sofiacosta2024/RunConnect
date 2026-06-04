@@ -24,7 +24,6 @@ try {
 
     CREATE TABLE IF NOT EXISTS "ENTRENAMIENTO" (
       codigo_entrenamiento INTEGER PRIMARY KEY AUTOINCREMENT,
-      email_organizador TEXT NOT NULL,
       codigo_deporte TEXT NOT NULL,
       fecha_inicio TEXT NOT NULL,
       fecha_fin TEXT NOT NULL,
@@ -34,7 +33,6 @@ try {
       ritmo_objetivo TEXT,
       nivel TEXT NOT NULL,
       cupo_maximo INTEGER,
-      FOREIGN KEY (email_organizador) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_deporte) REFERENCES "DEPORTE"(nombre),
       CHECK (nivel IN ('principiante', 'intermedio', 'avanzado'))
     );
@@ -42,30 +40,21 @@ try {
     CREATE TABLE IF NOT EXISTS "USUARIO_ENTRENAMIENTO" (
       codigo_entrenamiento INTEGER NOT NULL,
       email TEXT NOT NULL,
-      codigo_calificacion INTEGER,
       rol TEXT NOT NULL,
       PRIMARY KEY (codigo_entrenamiento, email),
       FOREIGN KEY (email) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
     );
 
-    CREATE TABLE IF NOT EXISTS "USUARIO_MENSAJE_ENTRENAMIENTO" (
-      codigo_entrenamiento INTEGER NOT NULL,
-      email TEXT NOT NULL,
-      PRIMARY KEY (codigo_entrenamiento, email),
-      FOREIGN KEY (email) REFERENCES "USUARIO"(email),
-      FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
-    );
-
     CREATE TABLE IF NOT EXISTS "MENSAJE" (
+      codigo_mensaje INTEGER PRIMARY KEY AUTOINCREMENT,
       fecha TEXT NOT NULL,
       hora TEXT NOT NULL,
       codigo_entrenamiento INTEGER NOT NULL,
       email TEXT NOT NULL,
       contenido TEXT NOT NULL,
-      PRIMARY KEY (fecha, hora, email),
       FOREIGN KEY (codigo_entrenamiento, email)
-        REFERENCES "USUARIO_MENSAJE_ENTRENAMIENTO"(codigo_entrenamiento, email)
+        REFERENCES "USUARIO_ENTRENAMIENTO"(codigo_entrenamiento, email)
     );
 
     CREATE TABLE IF NOT EXISTS "SOLICITUD" (
@@ -111,7 +100,6 @@ try {
   if (Number(countEntrenamientos.count) === 0) {
     const insertEntrenamiento = db.prepare(`
       INSERT INTO "ENTRENAMIENTO" (
-        email_organizador,
         codigo_deporte,
         fecha_inicio,
         fecha_fin,
@@ -121,11 +109,10 @@ try {
         ritmo_objetivo,
         nivel,
         cupo_maximo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     insertEntrenamiento.run(
-      "local@runconnect.test",
       "RUN",
       "2026-05-08T18:30:00Z",
       "2026-05-08T20:30:00Z",
@@ -136,6 +123,23 @@ try {
       "intermedio",
       20
     );
+
+    const trainingIdRow = db
+      .prepare('SELECT codigo_entrenamiento AS id FROM "ENTRENAMIENTO" LIMIT 1')
+      .get();
+    const trainingId = trainingIdRow?.id;
+
+    if (typeof trainingId === "number") {
+      db.prepare(
+        `
+        INSERT INTO "USUARIO_ENTRENAMIENTO" (
+          codigo_entrenamiento,
+          email,
+          rol
+        ) VALUES (?, ?, ?)
+      `
+      ).run(trainingId, "local@runconnect.test", "organizador");
+    }
   }
 
   console.log(`SQLite inicializado en: ${dbPath}`);

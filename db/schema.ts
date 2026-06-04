@@ -41,9 +41,6 @@ export const usuario = pgTable("USUARIO", {
 
 export const entrenamiento = pgTable("ENTRENAMIENTO", {
 	codigoEntrenamiento: serial("codigo_entrenamiento").primaryKey(),
-	emailOrganizador: text("email_organizador")
-		.notNull()
-		.references(() => usuario.email),
 	codigoDeporte: text("codigo_deporte")
 		.notNull()
 		.references(() => deporte.nombre),
@@ -64,19 +61,7 @@ export const usuarioEntrenamiento = pgTable(
 			.notNull()
 			.references(() => entrenamiento.codigoEntrenamiento),
 		email: text("email").notNull().references(() => usuario.email),
-		codigoCalificacion: integer("codigo_calificacion"),
 		rol: text("rol").notNull(),
-	},
-	(table) => [primaryKey({ columns: [table.codigoEntrenamiento, table.email] })]
-);
-
-export const usuarioMensajeEntrenamiento = pgTable(
-	"USUARIO_MENSAJE_ENTRENAMIENTO",
-	{
-		codigoEntrenamiento: integer("codigo_entrenamiento")
-			.notNull()
-			.references(() => entrenamiento.codigoEntrenamiento),
-		email: text("email").notNull().references(() => usuario.email),
 	},
 	(table) => [primaryKey({ columns: [table.codigoEntrenamiento, table.email] })]
 );
@@ -84,21 +69,19 @@ export const usuarioMensajeEntrenamiento = pgTable(
 export const mensaje = pgTable(
 	"MENSAJE",
 	{
+		codigoMensaje: serial("codigo_mensaje").primaryKey(),
 		fecha: date("fecha").notNull(),
 		hora: time("hora").notNull(),
-		codigoEntrenamiento: integer("codigo_entrenamiento")
-			.notNull()
-			.references(() => entrenamiento.codigoEntrenamiento),
-		email: text("email").notNull().references(() => usuario.email),
+		codigoEntrenamiento: integer("codigo_entrenamiento").notNull(),
+		email: text("email").notNull(),
 		contenido: text("contenido").notNull(),
 	},
 	(table) => [
-		primaryKey({ columns: [table.fecha, table.hora, table.email] }),
 		foreignKey({
 			columns: [table.codigoEntrenamiento, table.email],
 			foreignColumns: [
-				usuarioMensajeEntrenamiento.codigoEntrenamiento,
-				usuarioMensajeEntrenamiento.email,
+				usuarioEntrenamiento.codigoEntrenamiento,
+				usuarioEntrenamiento.email,
 			],
 		}),
 	]
@@ -107,22 +90,35 @@ export const mensaje = pgTable(
 export const calificacion = pgTable(
 	"CALIFICACION",
 	{
-		codigoCalificacion: serial("codigo_calificacion").primaryKey(),
 		emailCalificado: text("email_calificado")
 			.notNull()
 			.references(() => usuario.email),
+		codigoEntrenamiento1: integer("codigo_entrenamiento1").notNull(),
 		emailCalificador: text("email_calificador")
 			.notNull()
 			.references(() => usuario.email),
-		codigoEntrenamiento: integer("codigo_entrenamiento")
-			.notNull()
-			.references(() => entrenamiento.codigoEntrenamiento),
+		codigoEntrenamiento2: integer("codigo_entrenamiento2").notNull(),
 		puntaje: integer("puntaje").notNull(),
 		comentario: text("comentario"),
 	},
 	(table) => [
+		primaryKey({
+			columns: [
+				table.emailCalificado,
+				table.codigoEntrenamiento1,
+				table.emailCalificador,
+				table.codigoEntrenamiento2,
+			],
+		}),
 		foreignKey({
-			columns: [table.emailCalificado, table.codigoEntrenamiento],
+			columns: [table.emailCalificado, table.codigoEntrenamiento1],
+			foreignColumns: [
+				usuarioEntrenamiento.email,
+				usuarioEntrenamiento.codigoEntrenamiento,
+			],
+		}),
+		foreignKey({
+			columns: [table.emailCalificador, table.codigoEntrenamiento2],
 			foreignColumns: [
 				usuarioEntrenamiento.email,
 				usuarioEntrenamiento.codigoEntrenamiento,

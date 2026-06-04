@@ -2,6 +2,11 @@
 
 Este documento explica los cambios realizados, como se implementaron y por que. El objetivo fue permitir pruebas locales sin Neon/PostGIS y dejar el camino de Postgres intacto para produccion.
 
+## Modelo implementado
+
+- Se implementa **solo el modelo normalizado**.
+- El modelo desnormalizado queda documentado, pero **no se persiste** en la base actual.
+
 ## Cambios realizados (resumen)
 
 - Se agrego un modo local con SQLite para pruebas rapidas.
@@ -14,11 +19,12 @@ Este documento explica los cambios realizados, como se implementaron y por que. 
 - Se refactorizo el modelo de entrenamiento con timestamps y estado.
 - Se definio el DTO de entrada para entrenamientos y un error dedicado de validacion.
 - Se implemento la creacion atomica de entrenamiento + chat (RN-03).
+- MENSAJE usa `codigo_mensaje` como PK y referencia a `USUARIO_ENTRENAMIENTO`.
 IMPORTANTE: Estado en la tabla de entrenamiento, atributo no considerado en el modelo inicial, es de suma importancia, dado que sin este, no podríamos persistir la cancelación de un entrenamiento por parte del organizador. Además, este permite la finalización manual del entrenamiento: puede suceder que termine antes de lo previsto (datos cargados en el sistema), por lo que esta finalización manual activaría automáticamente las Calificaciones.
 A su vez, actúa como semáforo en las demás operaciones del sistema:
 - Con la tabla USUARIO_ENTRENAMIENTO: Solo se pueden insertar registros si el entrenamiento tiene estado = 'abierto'.
 - Con la tabla MENSAJE: Podríamos definir que si el entrenamiento cambia a estado = 'finalizado', el chat se vuelve de "solo lectura" después de 24 horas.
--Con la tabla CALIFICACIÓN: No se debería poder insertar una fila en CALIFICACION si el entrenamiento no está en estado = "finalizado".
+- Con la tabla CALIFICACIÓN: No se debería poder insertar una fila en CALIFICACION si el entrenamiento no está en estado = "finalizado".
 
 
 ## Archivos modificados o nuevos
@@ -31,7 +37,7 @@ A su vez, actúa como semáforo en las demás operaciones del sistema:
 
 - `scripts/init-sqlite.mjs` (nuevo)
   - Crea el archivo SQLite, DDL minimo y seeds (RUN, usuario, 1 entrenamiento).
-  - Agrega tablas locales `USUARIO_ENTRENAMIENTO`, `USUARIO_MENSAJE_ENTRENAMIENTO` y `MENSAJE` para RN-03.
+  - Agrega tablas locales `USUARIO_ENTRENAMIENTO` y `MENSAJE` para RN-03.
 
 - `services/entrenamientoService.pg.ts` (nuevo)
   - Contiene la logica original de Postgres, sin cambios funcionales.
@@ -139,6 +145,8 @@ Nota: Para creacion, el `estado` debe ser `abierto`.
 }
 ```
 
+Nota: `emailOrganizador` es un dato derivado de `USUARIO_ENTRENAMIENTO`.
+
 ## DTO y manejo de errores
 
 Se agrego un DTO tipado para la creacion de entrenamientos:
@@ -159,7 +167,7 @@ const dto: EntrenamientoCreateDto = {
 };
 ```
 
-El `email_organizador` no forma parte del DTO porque se obtiene desde el contexto de autenticacion (`getAuthenticatedOrganizerEmail`) y se pasa como argumento separado al servicio.
+El organizador se obtiene desde el contexto de autenticacion (`getAuthenticatedOrganizerEmail`) y se inserta como `rol = organizador` en `USUARIO_ENTRENAMIENTO`.
 
 Para errores de validacion en entrenamientos se utiliza la clase `EntrenamientoValidationError`, que integra el mismo formato de respuesta que el resto de `ApiError` y permite personalizar el status (default 400).
 
@@ -170,16 +178,15 @@ Al crear un entrenamiento se ejecuta `crearEntrenamientoConChat`, que usa una tr
 1. Valida fechas (y otros campos) antes de insertar.
 2. Inserta `ENTRENAMIENTO` con `estado = 'abierto'`.
 3. Inserta al organizador en `USUARIO_ENTRENAMIENTO` (rol `organizador`).
-4. Inserta al organizador en `USUARIO_MENSAJE_ENTRENAMIENTO`.
-5. Inserta un mensaje inicial en `MENSAJE` (contenido de sistema).
+4. Inserta un mensaje inicial en `MENSAJE` (contenido de sistema).
 
-Si falla cualquiera de los pasos 3 a 5, se revierte la transaccion y el entrenamiento no queda creado sin su organizador como participante.
+Si falla cualquiera de los pasos 3 o 4, se revierte la transaccion y el entrenamiento no queda creado sin su organizador como participante.
 
 ## Tests de integracion RN-03
 
 Se agrego una suite de pruebas en `__tests__/entrenamientoService.test.ts` que valida atributos de calidad clave:
 
-- **Consistencia end-to-end:** en el camino feliz se crean `ENTRENAMIENTO`, `USUARIO_ENTRENAMIENTO`, `USUARIO_MENSAJE_ENTRENAMIENTO` y `MENSAJE` y se retorna el entrenamiento creado.
+- **Consistencia end-to-end:** en el camino feliz se crean `ENTRENAMIENTO`, `USUARIO_ENTRENAMIENTO` y `MENSAJE` y se retorna el entrenamiento creado.
 - **Atomicidad:** si falla la insercion en `USUARIO_ENTRENAMIENTO`, se revierte la transaccion y no persiste `ENTRENAMIENTO`.
 - **Reglas de negocio:** fechas invalidas disparan `EntrenamientoValidationError` y no se insertan registros.
 - **Consistencia de estado:** el entrenamiento creado queda con `estado = 'abierto'`.
@@ -227,7 +234,7 @@ Ejemplo cuando `fecha_inicio` es demasiado cercana:
 - Activacion:
   - `DB_MODE=sqlite`
   - `SQLITE_DB_PATH` (opcional, default `runconnect.sqlite` en el root)
-    - `LOCAL_ORGANIZER_EMAIL` (ej: `local@runconnect.test`) o header `x-organizer-email`
+  - `LOCAL_ORGANIZER_EMAIL` (ej: `local@runconnect.test`) o header `x-organizer-email`
 
 - Flujo:
   - El selector en `services/entrenamientoService.ts` carga SQLite.
