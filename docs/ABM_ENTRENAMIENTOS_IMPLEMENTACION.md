@@ -76,12 +76,12 @@ Interpretacion de zonas horarias:
 
 ### Endpoints relevantes
 
-- `POST /api/entrenamientos`
+- `POST /api/trainings`
   - Crea el entrenamiento y el chat de forma atomica (RN-03).
   - Responde `201` con el objeto del entrenamiento creado.
-- `GET /api/entrenamientos`
+- `GET /api/trainings`
   - Lista entrenamientos.
-- `GET /api/entrenamientos/:id`
+- `GET /api/trainings/:trainingId`
   - Devuelve un entrenamiento por id.
 
 ### Autenticacion requerida

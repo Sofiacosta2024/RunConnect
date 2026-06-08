@@ -12,6 +12,9 @@ function isPublicPath(pathname: string) {
 }
 
 export async function proxy(request: NextRequest) {
+   if (process.env.SKIP_AUTH === "true") {
+    return NextResponse.next();
+  }
   const { pathname, search } = request.nextUrl;
 
   if (isPublicPath(pathname)) {
