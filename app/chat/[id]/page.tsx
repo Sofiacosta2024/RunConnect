@@ -48,7 +48,7 @@ export default function ChatPage() {
         {/* Mensajes */}
         <div className="rc-card flex-1 flex flex-col gap-3 overflow-y-auto p-4" style={{ minHeight: "60vh", maxHeight: "60vh" }}>
           {mensajes.map((m) => (
-            <div key={m.idMensaje} className="flex gap-3 items-start">
+            <div key={m.codigoMensaje} className="flex gap-3 items-start">
               <div className="rc-avatar w-8 h-8 text-sm flex-shrink-0">
                 {m.fotoPerfil
                   ? <img src={m.fotoPerfil} className="w-full h-full rounded-full object-cover" alt={m.nombre} />

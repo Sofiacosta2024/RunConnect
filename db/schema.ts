@@ -70,8 +70,11 @@ export const mensaje = pgTable(
 	"MENSAJE",
 	{
 		codigoMensaje: serial("codigo_mensaje").primaryKey(),
-		fecha: date("fecha").notNull(),
-		hora: time("hora").notNull(),
+		creadoEn: timestamp("creado_en", {
+   				   mode: "date",
+   					 })
+      					.defaultNow()
+      					.notNull(),
 		codigoEntrenamiento: integer("codigo_entrenamiento").notNull(),
 		email: text("email").notNull(),
 		contenido: text("contenido").notNull(),
