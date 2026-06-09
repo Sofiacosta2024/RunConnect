@@ -7,19 +7,22 @@ import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("next") ?? "/";
+  const callbackPath = searchParams.get("next") ?? "/entrenamientos";
 
   const onContinueWithGoogle = async () => {
+    const callbackURL = typeof window !== "undefined"
+      ? `${window.location.origin}${callbackPath}`
+      : callbackPath;
+
     await authClient.signIn.social({
       provider: "google",
       callbackURL,
     });
   };
 
-  const registrationHref = callbackURL === "/"
+  const registrationHref = callbackPath === "/"
     ? "/registro"
-    : `/registro?next=${encodeURIComponent(callbackURL)}`;
-
+    : `/registro?next=${encodeURIComponent(callbackPath)}`;
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
       <div className="grid w-full max-w-6xl gap-8 lg:grid-cols-[360px_1fr]">

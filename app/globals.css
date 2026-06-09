@@ -319,6 +319,168 @@
   color: var(--rc-muted);
 }
 
+/* ENTRENAMIENTOS PAGE */
+.entrenamientos-page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.entrenamientos-header {
+  margin-bottom: 32px;
+}
+
+.entrenamientos-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 42px;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+.entrenamientos-subtitle {
+  color: var(--rc-muted);
+  font-size: 15px;
+}
+
+.entrenamientos-filtros {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  padding: 18px;
+  background: var(--rc-surface);
+  border: 1px solid var(--rc-border);
+  border-radius: 14px;
+}
+
+.filtro-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filtro-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--rc-muted);
+}
+
+.filtro-select,
+.filtro-date {
+  background: var(--rc-card);
+  border: 1px solid var(--rc-border);
+  border-radius: 8px;
+  color: var(--rc-text);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  min-width: 140px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.filtro-select:focus,
+.filtro-date:focus {
+  border-color: var(--rc-accent);
+}
+
+.filtro-select option {
+  background: var(--rc-card);
+  color: var(--rc-text);
+}
+
+.filtro-date::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.filtro-limpiar {
+  background: none;
+  border: 1px solid var(--rc-border);
+  color: var(--rc-muted);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.filtro-limpiar:hover {
+  color: var(--rc-accent);
+  border-color: var(--rc-accent);
+}
+
+.entrenamientos-lista {
+  min-height: 200px;
+}
+
+.entrenamientos-loading {
+  text-align: center;
+  color: var(--rc-muted);
+  padding: 60px 0;
+  font-size: 15px;
+}
+
+.entrenamientos-error {
+  text-align: center;
+  color: var(--rc-accent);
+  padding: 40px 0;
+  font-size: 14px;
+}
+
+.entrenamientos-vacio {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.entrenamientos-vacio-icono {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.entrenamientos-vacio-texto {
+  font-size: 17px;
+  color: var(--rc-text);
+  margin-bottom: 8px;
+}
+
+.entrenamientos-vacio-sub {
+  font-size: 13px;
+  color: var(--rc-muted);
+}
+
+/* entrenamiento card extras */
+.entrenamiento-card .rc-user-name {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+
+.entrenamiento-card .rc-user-meta {
+  font-size: 12px;
+  color: var(--rc-muted);
+}
+
+.entrenamiento-card .flex-1 {
+  flex: 1;
+}
+
+.entrenamiento-nivel {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
 /* RESPONSIVE */
 @media (max-width: 768px) {
   .rc-layout {
@@ -327,5 +489,16 @@
 
   .rc-nav-links {
     display: none;
+  }
+
+  .entrenamientos-filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtro-select,
+  .filtro-date {
+    min-width: unset;
+    width: 100%;
   }
 }

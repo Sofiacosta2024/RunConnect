@@ -6,8 +6,8 @@ export default function Navbar() {
       </div>
 
       <ul className="rc-nav-links">
-        <li><a href="#">Muro</a></li>
-        <li><a href="#">Rutas</a></li>
+        <li><a href="/">Muro</a></li>
+        <li><a href="/entrenamientos">Entrenamientos</a></li>
       </ul>
     </nav>
   );

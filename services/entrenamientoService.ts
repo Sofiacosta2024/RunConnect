@@ -1,4 +1,4 @@
-export type { EntrenamientoInput, EntrenamientoListItem } from "./entrenamientoService.pg";
+export type { EntrenamientoInput, EntrenamientoListItem, GetFilteredParams } from "./entrenamientoService.pg";
 
 type EntrenamientoService = typeof import("./entrenamientoService.pg");
 
@@ -15,6 +15,13 @@ async function getService(): Promise<EntrenamientoService> {
 export async function getAll() {
   const service = await getService();
   return service.getAll();
+}
+
+export async function getFiltered(
+  params: import("./entrenamientoService.pg").GetFilteredParams
+) {
+  const service = await getService();
+  return service.getFiltered(params);
 }
 
 export async function getById(codigoEntrenamiento: number) {

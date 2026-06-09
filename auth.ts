@@ -45,5 +45,7 @@ export function getAuth() {
 		},
 	});
 
+	_auth.$context.then((ctx: any) => ctx.runMigrations()).catch(console.error);
+
 	return _auth;
 }

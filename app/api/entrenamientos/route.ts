@@ -7,7 +7,7 @@ import {
 } from "@/lib/api-errors";
 import type { EntrenamientoCreateDto } from "@/lib/entrenamiento-dto";
 import { getAuthenticatedOrganizerEmail } from "@/lib/organizer-auth";
-import { crearEntrenamientoConChat, getAll } from "@/services/entrenamientoService";
+import { crearEntrenamientoConChat, getAll, getFiltered } from "@/services/entrenamientoService";
 
 export const runtime = "nodejs";
 
@@ -29,9 +29,36 @@ async function readJsonBody(request: Request) {
   return body;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const entrenamientos = await getAll();
+    const { searchParams } = new URL(request.url);
+    const rawDeporte = searchParams.get("deporte");
+    const rawNivel = searchParams.get("nivel");
+    const rawFecha = searchParams.get("fecha");
+    const rawLat = searchParams.get("lat");
+    const rawLng = searchParams.get("lng");
+    const rawRadio = searchParams.get("radio");
+
+    const deporte = rawDeporte?.trim() || undefined;
+    const nivel = rawNivel?.trim() || undefined;
+    const fecha = rawFecha?.trim() || undefined;
+    const lat = rawLat ? Number(rawLat) : undefined;
+    const lng = rawLng ? Number(rawLng) : undefined;
+    const radioKm = rawRadio ? Number(rawRadio) : undefined;
+
+    if (!deporte && !nivel && !fecha && lat === undefined && lng === undefined) {
+      const entrenamientos = await getAll();
+      return NextResponse.json({ ok: true, data: entrenamientos });
+    }
+
+    const entrenamientos = await getFiltered({
+      codigoDeporte: deporte,
+      nivel,
+      fecha,
+      lat,
+      lng,
+      radioKm,
+    });
 
     return NextResponse.json({ ok: true, data: entrenamientos });
   } catch (error) {

@@ -7,8 +7,17 @@ import {
 import { db } from "@/lib/db";
 import { entrenamiento, deporte, usuarioEntrenamiento } from "@/db/schema";
 import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+
+export interface GetFilteredParams {
+  codigoDeporte?: string;
+  nivel?: string;
+  fecha?: string;
+  lat?: number;
+  lng?: number;
+  radioKm?: number;
+}
 
 type LocationInput =
   | string
@@ -268,6 +277,65 @@ export async function getAll() {
     return rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow));
   } catch (error) {
     throwDatabaseUnavailable(error, "getAll");
+  }
+}
+
+export async function getFiltered(params: GetFilteredParams = {}) {
+  try {
+    const conditions: ReturnType<typeof sql>[] = [
+      sql`${entrenamiento.fechaInicio} > NOW()`,
+    ];
+
+    if (params.codigoDeporte) {
+      conditions.push(sql`${entrenamiento.codigoDeporte} = ${params.codigoDeporte}`);
+    }
+
+    if (params.nivel) {
+      conditions.push(sql`${entrenamiento.nivel} = ${params.nivel}`);
+    }
+
+    if (params.fecha) {
+      conditions.push(sql`${entrenamiento.fechaInicio} >= ${params.fecha}::timestamptz`);
+    }
+
+    if (params.lat !== undefined && params.lng !== undefined) {
+      const radioMeters = (params.radioKm ?? 10) * 1000;
+      const point = `SRID=4326;POINT(${params.lng} ${params.lat})`;
+      conditions.push(
+        sql`ST_DWithin(${entrenamiento.puntoEncuentro}, ST_GeogFromText(${point}), ${radioMeters})`
+      );
+    }
+
+    const rows = await db
+      .select({
+        codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+        emailOrganizador: usuarioEntrenamiento.email,
+        codigoDeporte: entrenamiento.codigoDeporte,
+        descripcionDeporte: deporte.descripcionDeporte,
+        fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
+        fechaFin: sql`${entrenamiento.fechaFin}::text`,
+        estado: entrenamiento.estado,
+        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+        distanciaEstimada: entrenamiento.distanciaEstimada,
+        ritmoObjetivo: entrenamiento.ritmoObjetivo,
+        nivel: entrenamiento.nivel,
+        cupoMaximo: entrenamiento.cupoMaximo,
+      })
+      .from(entrenamiento)
+      .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
+      .where(and(...conditions))
+      .orderBy(asc(entrenamiento.fechaInicio));
+
+    return rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow));
+  } catch (error) {
+    throwDatabaseUnavailable(error, "getFiltered");
   }
 }
 

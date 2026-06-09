@@ -47,6 +47,15 @@ export type EntrenamientoInput = {
 
 type EntrenamientoChatInput = Omit<EntrenamientoInput, "estado">;
 
+export interface GetFilteredParams {
+  codigoDeporte?: string;
+  nivel?: string;
+  fecha?: string;
+  lat?: number;
+  lng?: number;
+  radioKm?: number;
+}
+
 type EntrenamientoRow = {
   codigoEntrenamiento: number;
   emailOrganizador: string;
@@ -255,6 +264,94 @@ export async function getAll() {
     return rows.map((row: EntrenamientoRow) => mapEntrenamiento(row));
   } catch (error) {
     throwDatabaseUnavailable(error, "getAll");
+  }
+}
+
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function parsePointCoords(wkt: string): { lat: number; lng: number } | null {
+  const match = wkt.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+  if (!match) return null;
+  return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+}
+
+export async function getFiltered(params: GetFilteredParams = {}) {
+  try {
+    const conditions: string[] = ["e.fecha_inicio > datetime('now')"];
+
+    if (params.codigoDeporte) {
+      conditions.push("e.codigo_deporte = ?");
+    }
+    if (params.nivel) {
+      conditions.push("e.nivel = ?");
+    }
+    if (params.fecha) {
+      conditions.push("e.fecha_inicio >= ?");
+    }
+
+    const whereClause = conditions.join(" AND ");
+    const queryParams: (string | number)[] = [];
+
+    if (params.codigoDeporte) queryParams.push(params.codigoDeporte);
+    if (params.nivel) queryParams.push(params.nivel);
+    if (params.fecha) queryParams.push(params.fecha);
+
+    const sql = `
+      SELECT
+        e.codigo_entrenamiento AS codigoEntrenamiento,
+        ue.email AS emailOrganizador,
+        e.codigo_deporte AS codigoDeporte,
+        d.descripcion_deporte AS descripcionDeporte,
+        e.fecha_inicio AS fechaInicio,
+        e.fecha_fin AS fechaFin,
+        e.estado AS estado,
+        e.punto_de_encuentro AS puntoEncuentro,
+        e.distancia_estimada AS distanciaEstimada,
+        e.ritmo_objetivo AS ritmoObjetivo,
+        e.nivel AS nivel,
+        e.cupo_maximo AS cupoMaximo
+      FROM "ENTRENAMIENTO" e
+      INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+      INNER JOIN "USUARIO_ENTRENAMIENTO" ue
+        ON ue.codigo_entrenamiento = e.codigo_entrenamiento
+       AND ue.rol = ?
+      WHERE ${whereClause}
+      ORDER BY e.fecha_inicio ASC
+    `;
+
+    const rows = db.prepare(sql).all(rolOrganizador, ...queryParams) as EntrenamientoRow[];
+
+    let result = rows.map((row) => mapEntrenamiento(row));
+
+    if (params.lat !== undefined && params.lng !== undefined) {
+      const radioKm = params.radioKm ?? 10;
+      result = result.filter((item) => {
+        if (!item.puntoEncuentro) return false;
+        const coords = parsePointCoords(item.puntoEncuentro);
+        if (!coords) return false;
+        const dist = haversineDistance(params.lat!, params.lng!, coords.lat, coords.lng);
+        return dist <= radioKm;
+      });
+    }
+
+    return result;
+  } catch (error) {
+    throwDatabaseUnavailable(error, "getFiltered");
   }
 }
 

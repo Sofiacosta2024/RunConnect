@@ -7,12 +7,12 @@ import { authClient } from "@/lib/auth-client";
 
 export default function RegisterPage() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("next") ?? "/";
+  const callbackURL = searchParams.get("next") ?? "/entrenamientos";
 
   const onContinueWithGoogle = async () => {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL,
+      callbackURL: callbackURL,
     });
   };
 
