@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import EntrenamientoCard from "../components/Entrenamientos/EntrenamientoCard";
+import CrearEntrenamientoModal from "../components/Entrenamientos/CrearEntrenamientoModal";
 import type { EntrenamientoListItem } from "@/services/entrenamientoService";
 
 const deportes = ["running", "cycling"] as const;
@@ -16,6 +17,7 @@ export default function EntrenamientosPage() {
   const [deporte, setDeporte] = useState("");
   const [nivel, setNivel] = useState("");
   const [fecha, setFecha] = useState("");
+  const [modalAbierto, setModalAbierto] = useState(false);
   const [ubicacion, setUbicacion] = useState<{
     lat: number;
     lng: number;
@@ -41,7 +43,7 @@ export default function EntrenamientosPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchEntrenamientos() {
+    async function load() {
       setLoading(true);
       setError("");
       try {
@@ -81,7 +83,7 @@ export default function EntrenamientosPage() {
       }
     }
 
-    fetchEntrenamientos();
+    load();
 
     return () => {
       cancelled = true;
@@ -203,6 +205,33 @@ export default function EntrenamientosPage() {
             ))}
         </div>
       </div>
+
+      <button className="rc-fab" onClick={() => setModalAbierto(true)}>
+        +
+      </button>
+
+      <CrearEntrenamientoModal
+        open={modalAbierto}
+        onClose={() => setModalAbierto(false)}
+        onCreated={() => {
+          const params = new URLSearchParams();
+          if (deporte) params.set("deporte", deporte);
+          if (nivel) params.set("nivel", nivel);
+          if (fecha) params.set("fecha", fecha);
+          if (ubicacion) {
+            params.set("lat", String(ubicacion.lat));
+            params.set("lng", String(ubicacion.lng));
+            params.set("radio", "10");
+          }
+          const qs = params.toString();
+          const url = qs ? `/api/entrenamientos?${qs}` : "/api/entrenamientos";
+          fetch(url)
+            .then((r) => r.json())
+            .then((json) => {
+              if (json.ok) setEntrenamientos(json.data);
+            });
+        }}
+      />
     </div>
   );
 }
