@@ -1,6 +1,52 @@
-//TO DO
-export const runtime = "nodejs";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 
-export async function POST() {
-  return new Response("Not implemented", { status: 501 });
+import { getAuth } from "@/lib/auth";
+import * as solicitudService from "@/services/solicitudService";
+
+export async function PATCH(
+  request: Request,
+  {
+    params,
+  }: {
+    params: Promise<{
+      id: string;
+      requestId: string;
+    }>;
+  }
+) {
+  const auth = getAuth();
+
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { error: "No autenticado" },
+      { status: 401 }
+    );
+  }
+
+  const { requestId } = await params;
+
+  try {
+    const resultado =
+      await solicitudService.aceptarSolicitud(
+        session.user.email,
+        Number(requestId)
+      );
+
+    return NextResponse.json(resultado);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error al aceptar la solicitud",
+      },
+      { status: 409 }
+    );
+  }
 }
