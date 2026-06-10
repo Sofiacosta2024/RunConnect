@@ -249,15 +249,24 @@
   gap: 12px;
 }
 
-.rc-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: #fff;
+.rc-avatar{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#fff;
+  background:var(--rc-grad);
+  overflow:hidden;
+  flex-shrink:0;
+}
+
+.rc-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
 
 .rc-stats-grid {
@@ -481,6 +490,76 @@
   white-space: nowrap;
 }
 
+/* Mensajes*/
+
+.rc-input{
+  width:100%;
+  background:#1b1b25;
+  border:1px solid var(--rc-border);
+  color:var(--rc-text);
+  padding:13px 18px;
+  border-radius:999px;
+  outline:none;
+  transition:.2s;
+  font-size:14px;
+}
+
+.rc-input::placeholder{
+  color:var(--rc-muted);
+}
+
+.rc-input:focus{
+  border-color:var(--rc-accent);
+  box-shadow:
+    0 0 0 3px rgba(255,60,60,.15);
+}
+
+.rc-message{
+  max-width:75%;
+  padding:12px 15px;
+  border-radius:18px;
+  word-break:break-word;
+}
+
+.rc-message-me{
+  background:var(--rc-grad);
+  color:white;
+  margin-left:auto;
+  border-bottom-right-radius:6px;
+}
+
+.rc-message-other{
+  background:#1b1b25;
+  color:var(--rc-text);
+  border-bottom-left-radius:6px;
+}
+
+.rc-title{
+  font-size:2rem;
+  font-weight:700;
+}
+
+.rc-subtitle{
+  font-size:.95rem;
+  color:var(--rc-muted);
+}
+
+::-webkit-scrollbar{
+  width:8px;
+}
+
+::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+::-webkit-scrollbar-thumb{
+  background:#2b2b39;
+  border-radius:20px;
+}
+
+::-webkit-scrollbar-thumb:hover{
+  background:#44445b;
+}
 /* ===========================
    CALIFICACIONES
 =========================== */
@@ -603,6 +682,23 @@
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeUp{
+  from{
+    opacity:0;
+    transform:translateY(10px);
+  }
+
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+
+.rc-card,
+.rc-message{
+  animation:fadeUp .25s ease;
 }
 
 @keyframes fadeIn {
