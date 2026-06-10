@@ -1,17 +1,14 @@
-"use client";
-
-import { useState } from "react";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import StatsStrip from "./components/StatsStrip";
 import Feed from "./components/Feed/Feed";
+import { getSugerencias } from "@/app/sugerencias/actions";
 
-export default function Page() {
-  const [liked, setLiked] = useState<Record<number, boolean>>({});
-
-  const toggleLike = (id: number) => {
-    setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+export default async function Page() {
+  const sugerenciasIniciales = await getSugerencias({
+    nivel: "intermedio",
+    distanciaMaxKm: 10,
+  }).catch(() => []);
 
   return (
     <div className="rc-root">
@@ -20,7 +17,7 @@ export default function Page() {
       <StatsStrip />
 
       <div className="rc-layout">
-        <Feed liked={liked} toggleLike={toggleLike} />
+        <Feed sugerenciasIniciales={sugerenciasIniciales} />
       </div>
     </div>
   );

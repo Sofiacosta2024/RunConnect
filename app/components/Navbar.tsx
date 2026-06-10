@@ -53,11 +53,14 @@ export default function Navbar() {
           session ? (
             <>
               <li className="rc-nav-user">{session.user?.name ?? session.user?.email ?? "Usuario"}</li>
-              <li>
-                <button type="button" className="rc-nav-button" onClick={handleLogout}>
-                  Cerrar sesión
-                </button>
-              </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                  >
+                    Cerrar sesión
+                  </button>
+                </li>
             </>
           ) : (
             <li>

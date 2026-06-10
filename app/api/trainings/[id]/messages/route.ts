@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       .select({
         codigoMensaje: mensaje.codigoMensaje,
         contenido: mensaje.contenido,
-        creadoEn: mensaje.creadoEn,          // ← un solo campo en vez de fecha+hora
+        creadoEn: mensaje.creadoEn,        
         email: mensaje.email,
         nombre: usuario.nombre,
         fotoPerfil: usuario.fotoPerfil,
@@ -33,7 +33,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       .from(mensaje)
       .innerJoin(usuario, eq(mensaje.email, usuario.email))
       .where(eq(mensaje.codigoEntrenamiento, codigoEntrenamiento))
-      .orderBy(asc(mensaje.creadoEn));        // ← ordenar por creadoEn
+      .orderBy(asc(mensaje.creadoEn));        
 
     return NextResponse.json({ ok: true, data: mensajes });
   } catch (error) {
