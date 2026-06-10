@@ -58,7 +58,7 @@ export default function EntrenamientosPage() {
         }
 
         const qs = params.toString();
-        const url = qs ? `/api/entrenamientos?${qs}` : "/api/entrenamientos";
+        const url = qs ? `/api/trainings?${qs}` : "/api/trainings";
 
         const res = await fetch(url);
         const json = await res.json();
@@ -224,7 +224,7 @@ export default function EntrenamientosPage() {
             params.set("radio", "10");
           }
           const qs = params.toString();
-          const url = qs ? `/api/entrenamientos?${qs}` : "/api/entrenamientos";
+          const url = qs ? `/api/trainings?${qs}` : "/api/trainings";
           fetch(url)
             .then((r) => r.json())
             .then((json) => {

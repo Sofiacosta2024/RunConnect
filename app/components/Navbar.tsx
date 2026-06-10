@@ -49,6 +49,7 @@ export default function Navbar() {
       <ul className="rc-nav-links">
         <li><Link href="/">Muro</Link></li>
         <li><Link href="/entrenamientos">Entrenamientos</Link></li>
+        <li> <Link href="/mis-entrenamientos">Mis entrenamientos</Link></li>
         {!loading && (
           session ? (
             <>

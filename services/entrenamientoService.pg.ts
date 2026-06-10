@@ -5,7 +5,7 @@ import {
   ValidationError,
 } from "@/lib/api-errors";
 import { db } from "@/lib/db";
-import { entrenamiento, deporte, usuarioEntrenamiento } from "@/db/schema";
+import { entrenamiento, deporte, usuarioEntrenamiento, solicitud } from "@/db/schema";
 import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -608,5 +608,60 @@ export async function remove(codigoEntrenamiento: number) {
   } catch (error) {
     if (error instanceof NotFoundError) throw error;
     throwDatabaseUnavailable(error, "remove");
+  }
+}
+
+export async function getMisEntrenamientos(
+  email: string
+): Promise<EntrenamientoListItem[]> {
+  try {
+    const rows = await db
+      .select({
+        codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+        emailOrganizador: usuarioEntrenamiento.email,
+        codigoDeporte: entrenamiento.codigoDeporte,
+        descripcionDeporte: deporte.descripcionDeporte,
+        fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
+        fechaFin: sql`${entrenamiento.fechaFin}::text`,
+        estado: entrenamiento.estado,
+        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+        distanciaEstimada: entrenamiento.distanciaEstimada,
+        ritmoObjetivo: entrenamiento.ritmoObjetivo,
+        nivel: entrenamiento.nivel,
+        cupoMaximo: entrenamiento.cupoMaximo,
+      })
+      .from(solicitud)
+      .innerJoin(
+        entrenamiento,
+        eq(
+          solicitud.codigoEntrenamiento,
+          entrenamiento.codigoEntrenamiento
+        )
+      )
+      .innerJoin(
+        deporte,
+        eq(deporte.nombre, entrenamiento.codigoDeporte)
+      )
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(
+            usuarioEntrenamiento.codigoEntrenamiento,
+            entrenamiento.codigoEntrenamiento
+          ),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
+      .where(
+        and(
+          eq(solicitud.email, email),
+          eq(solicitud.estado, "aprobado")
+        )
+      )
+      .orderBy(asc(entrenamiento.fechaInicio));
+
+    return rows.map((r) => mapEntrenamiento(r as EntrenamientoRow));
+  } catch (error) {
+    throwDatabaseUnavailable(error, "getMisEntrenamientos");
   }
 }

@@ -57,3 +57,10 @@ export async function crearEntrenamientoConChat(
   const service = await getService();
   return service.crearEntrenamientoConChat(emailOrganizador, input);
 }
+
+export async function getMisEntrenamientos(
+    email: string
+) {
+    const service = await getService();
+    return service.getMisEntrenamientos(email);
+}

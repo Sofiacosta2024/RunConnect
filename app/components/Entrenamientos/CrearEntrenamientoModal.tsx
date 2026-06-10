@@ -116,7 +116,7 @@ export default function CrearEntrenamientoModal({
       if (ritmo) body.ritmoObjetivo = ritmo;
       if (cupo) body.cupoMaximo = Number(cupo);
 
-      const res = await fetch("/api/entrenamientos", {
+      const res = await fetch("/api/trainings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

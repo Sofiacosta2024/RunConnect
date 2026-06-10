@@ -486,6 +486,74 @@
   color: var(--rc-muted);
 }
 
+/* Mis entrenamientos*/
+
+.mis-entrenamientos-header {
+  margin-bottom: 32px;
+}
+
+.mis-entrenamientos-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--rc-text);
+  margin: 0;
+}
+
+.mis-entrenamientos-subtitle {
+  margin-top: 8px;
+  color: var(--rc-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Estado vacío */
+
+.entrenamientos-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 320px;
+
+  background: var(--rc-surface);
+  border: 1px solid var(--rc-border);
+  border-radius: 18px;
+
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.entrenamientos-vacio-icono {
+  font-size: 64px;
+  margin-bottom: 18px;
+}
+
+.entrenamientos-vacio-texto {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--rc-text);
+  margin: 0;
+}
+
+.entrenamientos-vacio-sub {
+  margin-top: 10px;
+  max-width: 500px;
+
+  color: var(--rc-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* Grid de tarjetas */
+
+.mis-entrenamientos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+
 /* ENTRENAMIENTOS PAGE */
 .entrenamientos-page {
   max-width: 820px;

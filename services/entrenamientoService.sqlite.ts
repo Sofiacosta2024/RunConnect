@@ -648,3 +648,8 @@ export async function crearEntrenamientoConChat(
     throwDatabaseUnavailable(error, "crearEntrenamientoConChat");
   }
 }
+
+export async function getMisEntrenamientos(email: string) {
+    // implementar o devolver un array vacío por ahora
+    return [];
+}
