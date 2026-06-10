@@ -46,10 +46,11 @@ export async function getAuthenticatedOrganizerEmail(headers: Headers) {
     [email]
   );
 
-  const usuario = result.rows[0];
-
-  if (!usuario) {
-    throw new ForbiddenError("La cuenta autenticada no esta registrada.");
+  if (!result.rows[0]) {
+    await pool.query(
+      `INSERT INTO "USUARIO" (email, nombre) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+      [email, session.user.name ?? email]
+    );
   }
 
   return email;

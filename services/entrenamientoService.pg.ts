@@ -531,14 +531,10 @@ export async function crearEntrenamientoConChat(
 
       await tx.execute(sql`
         INSERT INTO "MENSAJE" (
-          fecha,
-          hora,
           codigo_entrenamiento,
           email,
           contenido
         ) VALUES (
-          ${fechaMensaje}::date,
-          ${horaMensaje}::time,
           ${codigoEntrenamiento},
           ${organizerEmail},
           ${welcomeMessage}

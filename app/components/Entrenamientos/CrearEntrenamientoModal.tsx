@@ -19,6 +19,22 @@ const niveles = [
   { value: "avanzado", label: "Avanzado" },
 ];
 
+type Coords = { lat: number; lng: number; display: string };
+
+async function geocodificar(direccion: string): Promise<Coords | null> {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(direccion)}&format=json&limit=1`;
+  const res = await fetch(url, {
+    headers: { "Accept-Language": "es", "User-Agent": "RunConnect/1.0" },
+  });
+  const data = await res.json();
+  if (!data || data.length === 0) return null;
+  return {
+    lat: parseFloat(data[0].lat),
+    lng: parseFloat(data[0].lon),
+    display: data[0].display_name,
+  };
+}
+
 export default function CrearEntrenamientoModal({
   open,
   onClose,
@@ -33,10 +49,32 @@ export default function CrearEntrenamientoModal({
   const [ritmo, setRitmo] = useState("");
   const [cupo, setCupo] = useState("");
   const [ubicacion, setUbicacion] = useState("");
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [geocodificando, setGeocodificando] = useState(false);
+  const [errorGeo, setErrorGeo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
 
   if (!open) return null;
+
+  async function handleUbicacionBlur() {
+    if (!ubicacion.trim()) return;
+    setGeocodificando(true);
+    setErrorGeo("");
+    setCoords(null);
+    try {
+      const resultado = await geocodificar(ubicacion);
+      if (!resultado) {
+        setErrorGeo("No se encontró la dirección. Intentá ser más específico.");
+      } else {
+        setCoords(resultado);
+      }
+    } catch {
+      setErrorGeo("Error al buscar la dirección.");
+    } finally {
+      setGeocodificando(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +87,11 @@ export default function CrearEntrenamientoModal({
 
     if (!ubicacion) {
       setError("Indicá el punto de encuentro.");
+      return;
+    }
+
+    if (!coords) {
+      setError("Esperá a que se verifique la dirección o corregila.");
       return;
     }
 
@@ -65,7 +108,7 @@ export default function CrearEntrenamientoModal({
         fechaInicio,
         fechaFin,
         nivel,
-        puntoEncuentro: ubicacion,
+        puntoEncuentro: { lat: coords.lat, lng: coords.lng },
         estado: "abierto",
       };
 
@@ -168,8 +211,24 @@ export default function CrearEntrenamientoModal({
               type="text"
               placeholder="Ej: Plaza San Martín, CABA"
               value={ubicacion}
-              onChange={(e) => setUbicacion(e.target.value)}
+              onChange={(e) => {
+                setUbicacion(e.target.value);
+                setCoords(null);
+                setErrorGeo("");
+              }}
+              onBlur={handleUbicacionBlur}
             />
+            {geocodificando && (
+              <p className="rc-field-hint">Buscando ubicación...</p>
+            )}
+            {errorGeo && (
+              <p className="rc-field-error">{errorGeo}</p>
+            )}
+            {coords && !geocodificando && (
+              <p className="rc-field-hint rc-field-hint--ok">
+                ✓ {coords.display}
+              </p>
+            )}
           </div>
 
           <div className="rc-field-row">
@@ -223,7 +282,7 @@ export default function CrearEntrenamientoModal({
             </div>
           </div>
 
-          <button className="rc-btn-submit" type="submit" disabled={enviando}>
+          <button className="rc-btn-submit" type="submit" disabled={enviando || geocodificando}>
             {enviando ? "Creando..." : "Crear entrenamiento"}
           </button>
         </form>

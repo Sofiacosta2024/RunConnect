@@ -1,3 +1,5 @@
+// /app/api/entrenamientos/route.ts
+
 import { NextResponse } from "next/server";
 
 import {

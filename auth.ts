@@ -43,6 +43,18 @@ export function getAuth() {
 				clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 			},
 		},
+		databaseHooks: {
+			user: {
+				create: {
+					after: async (user: { email: string; name?: string }) => {
+						await pool.query(
+							`INSERT INTO "USUARIO" (email, nombre) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+							[user.email, user.name ?? user.email]
+						);
+					},
+				},
+			},
+		},
 	});
 
 	_auth.$context.then((ctx: any) => ctx.runMigrations()).catch(console.error);

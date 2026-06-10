@@ -1,3 +1,4 @@
+// /app/api/logout/route.ts
 import { NextResponse } from "next/server";
 
 import { signOutServer } from "@/lib/auth-server";
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
 
   const redirectResponse = NextResponse.redirect(new URL("/login", request.url));
 
-  result.headers?.forEach((value, key) => {
+  result.headers?.forEach((value: string, key: string) => {
     if (key.toLowerCase() === "set-cookie") {
       redirectResponse.headers.append(key, value);
       return;

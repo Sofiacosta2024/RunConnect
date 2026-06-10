@@ -7,6 +7,147 @@
   padding: 0;
 }
 
+/* AUTH PAGES */
+.rc-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.rc-auth-grid {
+  display: grid;
+  width: 100%;
+  max-width: 1100px;
+  gap: 32px;
+  grid-template-columns: 360px 1fr;
+}
+
+.rc-auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: var(--rc-card);
+  border: 1px solid var(--rc-border);
+  border-radius: 20px;
+  padding: 40px 32px;
+}
+
+.rc-auth-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+}
+
+.rc-auth-subtitle {
+  color: var(--rc-muted);
+  font-size: 15px;
+}
+
+.rc-auth-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+
+.rc-auth-footer {
+  font-size: 13px;
+  color: var(--rc-muted);
+}
+
+.rc-auth-link {
+  color: var(--rc-text);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.rc-auth-aside {
+  display: none;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid var(--rc-border);
+  background: var(--rc-surface);
+  padding: 32px;
+}
+
+.rc-auth-aside-inner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: var(--rc-card);
+  padding: 32px;
+  height: 100%;
+}
+
+.rc-auth-aside-glow {
+  position: absolute;
+  inset-x: 0;
+  top: 0;
+  height: 192px;
+  background: radial-gradient(circle at top, rgba(255,60,60,0.12), transparent 70%);
+  pointer-events: none;
+}
+
+.rc-auth-aside-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rc-auth-aside-sub {
+  color: var(--rc-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 380px;
+}
+
+.rc-auth-aside-box {
+  margin-top: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.03);
+  padding: 24px;
+}
+
+.rc-auth-aside-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: var(--rc-accent2);
+}
+
+.rc-auth-aside-heading {
+  margin-top: 12px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.rc-auth-aside-desc {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--rc-muted);
+}
+
+@media (min-width: 1024px) {
+  .rc-auth-aside {
+    display: block;
+  }
+}
+
+@media (max-width: 1023px) {
+  .rc-auth-grid {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+  }
+}
+
 /* VARIABLES */
 :root {
   --rc-bg: #0A0A0F;
@@ -834,6 +975,21 @@
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 13px;
+}
+.rc-field-hint {
+  font-size: 12px;
+  color: var(--rc-muted);
+  margin-top: 2px;
+}
+
+.rc-field-hint--ok {
+  color: var(--rc-teal);
+}
+
+.rc-field-error {
+  font-size: 12px;
+  color: var(--rc-accent);
+  margin-top: 2px;
 }
 
 /* RESPONSIVE */

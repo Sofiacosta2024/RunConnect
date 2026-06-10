@@ -1,3 +1,5 @@
+// /app/api/entrenamientos/[id]/route.ts
+
 import { NextResponse } from "next/server";
 
 import { ForbiddenError, NotFoundError, ValidationError, toApiErrorResponse } from "@/lib/api-errors";
