@@ -8,15 +8,15 @@ const ETIQUETAS = ["", "Muy malo", "Malo", "Regular", "Bueno", "Excelente"];
 type Props = {
   participante: Participante;
   codigoEntrenamiento: number;
-  onClose: () => void;
-  onExito: () => void;
+  onCloseAction: () => void;
+  onExitoAction: () => void;
 };
 
 export default function ModalCalificacion({
   participante,
   codigoEntrenamiento,
-  onClose,
-  onExito,
+  onCloseAction,
+  onExitoAction,
 }: Props) {
   const [puntaje, setPuntaje] = useState(0);
   const [comentario, setComentario] = useState("");
@@ -37,7 +37,7 @@ export default function ModalCalificacion({
           puntaje,
           comentario: comentario.trim() || null,
         });
-        onExito();
+        onExitoAction();
       } catch (e: unknown) {
         setError(
           e instanceof Error ? e.message : "No se pudo enviar la calificación."
@@ -50,7 +50,7 @@ export default function ModalCalificacion({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.4)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && onCloseAction()}
     >
       <div
         className="rc-card w-full max-w-sm flex flex-col gap-5 p-6"
@@ -78,7 +78,7 @@ export default function ModalCalificacion({
           <button
             className="ml-auto text-lg leading-none"
             style={{ color: "var(--rc-muted)", background: "none", border: "none", cursor: "pointer" }}
-            onClick={onClose}
+            onClick={onCloseAction}
             aria-label="Cerrar"
           >
             ✕
@@ -154,7 +154,7 @@ export default function ModalCalificacion({
         <div className="flex gap-2 justify-end">
           <button
             className="rc-btn-secondary px-4 py-2 rounded-lg text-sm"
-            onClick={onClose}
+            onClick={onCloseAction}
             disabled={isPending}
           >
             Cancelar

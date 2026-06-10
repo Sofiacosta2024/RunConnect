@@ -245,8 +245,8 @@ export default function CalificacionClient({
         <ModalCalificacion
           participante={seleccionado}
           codigoEntrenamiento={codigoEntrenamiento}
-          onClose={() => setSeleccionado(null)}
-          onExito={handleExito}
+          onCloseAction={() => setSeleccionado(null)}
+          onExitoAction={handleExito}
         />
       )}
     </div>
