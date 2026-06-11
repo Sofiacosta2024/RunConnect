@@ -553,6 +553,80 @@
   gap: 20px;
 }
 
+/* Solicitud de entrenamiento */
+
+.solicitudes-lista {
+  display: grid;
+  gap: 1rem;
+}
+
+.solicitud-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+
+.solicitud-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.solicitud-card-header h3 {
+  margin: 0;
+}
+
+.solicitud-estado {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  font-size: .85rem;
+}
+
+.solicitud-card-body p {
+  margin: .35rem 0;
+}
+
+.solicitud-card-actions {
+  display: flex;
+  gap: .75rem;
+  margin-top: 1rem;
+}
+
+.solicitud-btn {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: .75rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: .2s;
+}
+
+.solicitud-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.solicitud-btn.aceptar {
+  background: #22c55e;
+  color: white;
+}
+
+.solicitud-btn.aceptar:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.solicitud-btn.rechazar {
+  background: #ef4444;
+  color: white;
+}
+
+.solicitud-btn.rechazar:hover:not(:disabled) {
+  background: #dc2626;
+}
 
 /* ENTRENAMIENTOS PAGE */
 .entrenamientos-page {

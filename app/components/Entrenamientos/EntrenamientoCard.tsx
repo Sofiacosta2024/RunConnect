@@ -1,7 +1,11 @@
+"use client";
 import type { EntrenamientoListItem } from "@/services/entrenamientoService";
+import { useState } from "react";
 
 type Props = {
   entrenamiento: EntrenamientoListItem;
+  mostrarBotonSolicitud?: boolean;
+  esOrganizador?: boolean;
 };
 
 const deporteEmoji: Record<string, string> = {
@@ -34,7 +38,35 @@ function distanceLabel(km: number | null) {
   return `${km.toFixed(1)} km`;
 }
 
-export default function EntrenamientoCard({ entrenamiento }: Props) {
+export default function EntrenamientoCard({ entrenamiento, mostrarBotonSolicitud = false, esOrganizador = false }: Props) {
+const [loading, setLoading] = useState(false);
+const [enviada, setEnviada] = useState(false);
+
+async function solicitarParticipacion() {
+  try {
+    setLoading(true);
+
+    const res = await fetch(
+      `/api/trainings/${entrenamiento.codigoEntrenamiento}/requests`,
+      {
+        method: "POST",
+      }
+    );
+
+    if (!res.ok) {
+      const error = await res.json();
+      alert(error.error ?? "No se pudo enviar la solicitud");
+      return;
+    }
+
+    setEnviada(true);
+  } catch {
+    alert("Error de conexión");
+  } finally {
+    setLoading(false);
+  }
+}
+
   return (
     <div className="rc-card entrenamiento-card">
       <div className="rc-user-row">
@@ -87,6 +119,21 @@ export default function EntrenamientoCard({ entrenamiento }: Props) {
           value={entrenamiento.estado}
         />
       </div>
+      {mostrarBotonSolicitud && !esOrganizador && (
+        <div className="entrenamiento-actions">
+          <button
+            className="rc-btn-primary"
+            onClick={solicitarParticipacion}
+            disabled={loading || enviada}
+          >
+            {loading
+              ? "Enviando..."
+              : enviada
+              ? "Solicitud enviada"
+              : "Solicitar participación"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

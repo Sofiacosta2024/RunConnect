@@ -19,3 +19,9 @@ export const aceptarSolicitud =
 
 export const rechazarSolicitud =
   service.rechazarSolicitud;
+
+export const getSolicitudesPendientesDelOrganizador =
+  service.getSolicitudesPendientesDelOrganizador;
+
+export const rechazarSolicitudesExpiradas =
+  service.rechazarSolicitudesExpiradas; 

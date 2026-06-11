@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, eq, sql } from "drizzle-orm";
+import { asc, and, eq, count,sql} from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
   solicitud,
   entrenamiento,
   usuarioEntrenamiento,
+  usuario
 } from "@/db/schema";
 
 import {
@@ -18,40 +19,6 @@ export async function crearSolicitud(
   email: string,
   codigoEntrenamiento: number
 ) {
-  // verificar entrenamiento
-
-  const training = await db
-    .select()
-    .from(entrenamiento)
-    .where(
-      eq(
-        entrenamiento.codigoEntrenamiento,
-        codigoEntrenamiento
-      )
-    );
-
-  if (training.length === 0) {
-    throw new NotFoundError(
-      "Entrenamiento no encontrado"
-    );
-  }
-
-  const e = training[0];
-
-  if (e.estado !== "abierto") {
-    throw new ValidationError(
-      "El entrenamiento no acepta solicitudes."
-    );
-  }
-
-  if (new Date(e.fechaInicio) <= new Date()) {
-    throw new ValidationError(
-      "El entrenamiento ya comenzó."
-    );
-  }
-
-  // verificar solicitud existente
-
   const existente = await db
     .select()
     .from(solicitud)
@@ -67,22 +34,84 @@ export async function crearSolicitud(
     );
 
   if (existente.length > 0) {
-    throw new ValidationError(
+    throw new Error(
       "Ya existe una solicitud activa."
     );
   }
 
-  const result = await db
+  const entrenamientoDB = await db
+    .select()
+    .from(entrenamiento)
+    .where(
+      eq(
+        entrenamiento.codigoEntrenamiento,
+        codigoEntrenamiento
+      )
+    );
+
+  if (entrenamientoDB.length === 0) {
+    throw new Error(
+      "Entrenamiento inexistente."
+    );
+  }
+
+  const ent = entrenamientoDB[0];
+
+  if (ent.estado !== "abierto") {
+    throw new Error(
+      "El entrenamiento no acepta solicitudes."
+    );
+  }
+
+  const ahora = new Date();
+
+  const diferencia =
+    ent.fechaInicio.getTime() -
+    ahora.getTime();
+
+  if (diferencia < 2 * 60 * 60 * 1000) {
+    throw new Error(
+      "El entrenamiento comienza en menos de 2 horas."
+    );
+  }
+
+  const entrenamientoInfo = await db
+  .select({
+    emailOrganizador: usuarioEntrenamiento.email,
+  })
+  .from(usuarioEntrenamiento)
+  .where(
+    and(
+      eq(
+        usuarioEntrenamiento.codigoEntrenamiento,
+        codigoEntrenamiento
+      ),
+      eq(usuarioEntrenamiento.rol, "organizador")
+    )
+  )
+  .limit(1);
+
+if (!entrenamientoInfo.length) {
+  throw new Error("Entrenamiento no encontrado");
+}
+
+if (entrenamientoInfo[0].emailOrganizador === email) {
+  throw new Error(
+    "El organizador no puede solicitar participar en su propio entrenamiento."
+  );
+}
+
+  const nueva = await db
     .insert(solicitud)
     .values({
       email,
       codigoEntrenamiento,
       estado: "pendiente",
-      fecha: new Date(),
+      fecha: ahora,
     })
     .returning();
 
-  return result[0];
+  return nueva[0];
 }
 
 export async function obtenerSolicitudes(
@@ -103,13 +132,16 @@ export async function obtenerSolicitudes(
           usuarioEntrenamiento.email,
           emailOrganizador
         ),
-        eq(usuarioEntrenamiento.rol, "organizador")
+        eq(
+          usuarioEntrenamiento.rol,
+          "organizador"
+        )
       )
     );
 
   if (organizador.length === 0) {
-    throw new ValidationError(
-      "Solo el organizador puede ver las solicitudes."
+    throw new Error(
+      "Solo el organizador puede ver solicitudes."
     );
   }
 
@@ -123,7 +155,13 @@ export async function obtenerSolicitudes(
             solicitud.codigoEntrenamiento,
             codigoEntrenamiento
           ),
-          eq(solicitud.estado, estado as any)
+          eq(
+            solicitud.estado,
+            estado as
+              | "pendiente"
+              | "aprobado"
+              | "rechazado"
+          )
         )
       );
   }
@@ -144,7 +182,8 @@ export async function aceptarSolicitud(
   codigoSolicitud: number
 ) {
   return db.transaction(async (tx) => {
-    const rows = await tx
+
+    const solicitudDB = await tx
       .select()
       .from(solicitud)
       .where(
@@ -154,13 +193,13 @@ export async function aceptarSolicitud(
         )
       );
 
-    if (rows.length === 0) {
-      throw new NotFoundError(
-        "Solicitud inexistente"
+    if (solicitudDB.length === 0) {
+      throw new Error(
+        "Solicitud inexistente."
       );
     }
 
-    const s = rows[0];
+    const sol = solicitudDB[0];
 
     const organizador = await tx
       .select()
@@ -169,7 +208,7 @@ export async function aceptarSolicitud(
         and(
           eq(
             usuarioEntrenamiento.codigoEntrenamiento,
-            s.codigoEntrenamiento
+            sol.codigoEntrenamiento
           ),
           eq(
             usuarioEntrenamiento.email,
@@ -183,8 +222,60 @@ export async function aceptarSolicitud(
       );
 
     if (organizador.length === 0) {
-      throw new ValidationError(
-        "No autorizado."
+      throw new Error(
+        "Solo el organizador puede aceptar."
+      );
+    }
+
+    const entrenamientoDB = await tx
+      .select()
+      .from(entrenamiento)
+      .where(
+        eq(
+          entrenamiento.codigoEntrenamiento,
+          sol.codigoEntrenamiento
+        )
+      );
+
+    const ent = entrenamientoDB[0];
+
+    const horasRestantes =
+        (new Date(ent.fechaInicio).getTime() - Date.now()) /
+        (1000 * 60 * 60);
+        
+      if (horasRestantes <= 0) {
+          throw new Error(
+            "El entrenamiento ya comenzó."
+          );
+        }
+
+      if (horasRestantes < 2) {
+        throw new Error(
+          "No se puede aceptar la solicitud porque el entrenamiento comienza en menos de 2 horas."
+        );
+      }
+
+    const participantes = await tx
+      .select({
+        total: count(),
+      })
+      .from(usuarioEntrenamiento)
+      .where(
+        eq(
+          usuarioEntrenamiento.codigoEntrenamiento,
+          sol.codigoEntrenamiento
+        )
+      );
+
+    const cantidad =
+      Number(participantes[0].total);
+
+    if (
+      ent.cupoMaximo !== null &&
+      cantidad >= ent.cupoMaximo
+    ) {
+      throw new Error(
+        "El entrenamiento ya alcanzó su cupo."
       );
     }
 
@@ -204,8 +295,8 @@ export async function aceptarSolicitud(
       .insert(usuarioEntrenamiento)
       .values({
         codigoEntrenamiento:
-          s.codigoEntrenamiento,
-        email: s.email,
+          sol.codigoEntrenamiento,
+        email: sol.email,
         rol: "participante",
       });
 
@@ -214,37 +305,133 @@ export async function aceptarSolicitud(
     };
   });
 }
+
 export async function rechazarSolicitud(
   emailOrganizador: string,
   codigoSolicitud: number
 ) {
-  const rows = await db
-    .select()
-    .from(solicitud)
-    .where(
-      eq(
-        solicitud.codigoSolicitud,
-        codigoSolicitud
-      )
-    );
+  return db.transaction(async (tx) => {
 
-  if (rows.length === 0) {
-    throw new NotFoundError(
-      "Solicitud inexistente"
-    );
-  }
+    const solicitudDB = await tx
+      .select()
+      .from(solicitud)
+      .where(
+        eq(
+          solicitud.codigoSolicitud,
+          codigoSolicitud
+        )
+      );
 
-  const s = rows[0];
+    if (solicitudDB.length === 0) {
+      throw new Error(
+        "Solicitud inexistente."
+      );
+    }
 
-  const organizador = await db
-    .select()
+    const sol = solicitudDB[0];
+
+    const organizador = await tx
+      .select()
+      .from(usuarioEntrenamiento)
+      .where(
+        and(
+          eq(
+            usuarioEntrenamiento.codigoEntrenamiento,
+            sol.codigoEntrenamiento
+          ),
+          eq(
+            usuarioEntrenamiento.email,
+            emailOrganizador
+          ),
+          eq(
+            usuarioEntrenamiento.rol,
+            "organizador"
+          )
+        )
+      );
+
+    if (organizador.length === 0) {
+      throw new Error(
+        "Solo el organizador puede rechazar."
+      );
+    }
+
+    await tx
+      .update(solicitud)
+      .set({
+        estado: "rechazado",
+      })
+      .where(
+        eq(
+          solicitud.codigoSolicitud,
+          codigoSolicitud
+        )
+      );
+
+    return {
+      ok: true,
+    };
+  });
+}
+
+export async function getSolicitudesPendientesDelOrganizador(
+  emailOrganizador: string
+) {
+  return await db
+    .select({
+      codigoSolicitud: solicitud.codigoSolicitud,
+
+      estado: solicitud.estado,
+
+      fecha: solicitud.fecha,
+
+      emailSolicitante: solicitud.email,
+
+      nombreSolicitante: usuario.nombre,
+
+      codigoEntrenamiento:
+        entrenamiento.codigoEntrenamiento,
+
+      deporte:
+        entrenamiento.codigoDeporte,
+
+      fechaInicio:
+        entrenamiento.fechaInicio,
+
+      nivel:
+        entrenamiento.nivel,
+
+      cupo:
+        entrenamiento.cupoMaximo,
+    })
     .from(usuarioEntrenamiento)
+
+    .innerJoin(
+      entrenamiento,
+      eq(
+        usuarioEntrenamiento.codigoEntrenamiento,
+        entrenamiento.codigoEntrenamiento
+      )
+    )
+
+    .innerJoin(
+      solicitud,
+      eq(
+        solicitud.codigoEntrenamiento,
+        entrenamiento.codigoEntrenamiento
+      )
+    )
+
+    .innerJoin(
+      usuario,
+      eq(
+        usuario.email,
+        solicitud.email
+      )
+    )
+
     .where(
       and(
-        eq(
-          usuarioEntrenamiento.codigoEntrenamiento,
-          s.codigoEntrenamiento
-        ),
         eq(
           usuarioEntrenamiento.email,
           emailOrganizador
@@ -252,29 +439,30 @@ export async function rechazarSolicitud(
         eq(
           usuarioEntrenamiento.rol,
           "organizador"
+        ),
+        eq(
+          solicitud.estado,
+          "pendiente"
         )
       )
-    );
+    )
 
-  if (organizador.length === 0) {
-    throw new ValidationError(
-      "No autorizado."
+    .orderBy(
+      asc(entrenamiento.fechaInicio)
     );
-  }
+}
 
-  await db
-    .update(solicitud)
-    .set({
-      estado: "rechazado",
-    })
-    .where(
-      eq(
-        solicitud.codigoSolicitud,
-        codigoSolicitud
+export async function rechazarSolicitudesExpiradas() {
+  const resultado = await db.execute(sql`
+    UPDATE "SOLICITUD"
+    SET estado = 'rechazado'
+    WHERE estado = 'pendiente'
+      AND codigo_entrenamiento IN (
+        SELECT codigo_entrenamiento
+        FROM "ENTRENAMIENTO"
+        WHERE fecha_inicio <= NOW() + INTERVAL '2 hours'
       )
-    );
+  `);
 
-  return {
-    ok: true,
-  };
+  return resultado.rowCount ?? 0;
 }

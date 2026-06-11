@@ -23,6 +23,24 @@ export default function EntrenamientosPage() {
     lng: number;
   } | null>(null);
   const [error, setError] = useState("");
+  const [emailUsuario, setEmailUsuario] = useState("");
+
+
+  useEffect(() => {
+  async function loadSession() {
+    try {
+      const res = await fetch("/api/auth/get-session");
+
+      if (!res.ok) return;
+
+      const session = await res.json();
+
+      setEmailUsuario(session?.user?.email ?? "");
+    } catch {}
+  }
+
+  loadSession();
+}, []);
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -201,7 +219,7 @@ export default function EntrenamientosPage() {
           {!loading &&
             !error &&
             entrenamientos.map((e) => (
-              <EntrenamientoCard key={e.codigoEntrenamiento} entrenamiento={e} />
+              <EntrenamientoCard key={e.codigoEntrenamiento} entrenamiento={e} mostrarBotonSolicitud = { emailUsuario !== "" && emailUsuario !== e.emailOrganizador } esOrganizador={emailUsuario === e.emailOrganizador && e.estado === "abierto"} />
             ))}
         </div>
       </div>

@@ -28,3 +28,15 @@ export async function rechazarSolicitud(
 ) {
   throw new Error("Not implemented");
 }
+
+export async function getSolicitudesPendientesDelOrganizador(
+  email: string
+): Promise<never> {
+  throw new Error("No implementado para SQLite");
+}
+
+export async function rechazarSolicitudesExpiradas() {
+  return 0;
+} {
+  throw new Error("No implementado");
+}
