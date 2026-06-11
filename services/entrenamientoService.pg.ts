@@ -17,6 +17,7 @@ export interface GetFilteredParams {
   lat?: number;
   lng?: number;
   radioKm?: number;
+  emailUsuario?: string; // Solo para getFiltered, para indicar el email del usuario logueado y marcar si es participante de cada entrenamiento
 }
 
 type LocationInput =
@@ -41,6 +42,7 @@ export type EntrenamientoListItem = {
   ritmoObjetivo: string | null;
   nivel: string;
   cupoMaximo: number | null;
+  esParticipante?: boolean; // Solo para getFiltered, indica si el usuario filtró es participante del entrenamiento
 };
 
 export type EntrenamientoInput = {
@@ -70,6 +72,7 @@ type EntrenamientoRow = {
   ritmoObjetivo: string | null;
   nivel: string;
   cupoMaximo: number | string | null;
+  esParticipante?: number | boolean; // Solo para getFiltered, viene como 0 o 1 desde la consulta SQL
 };
 
 function toNumberOrNull(value: string | number | null) {
@@ -94,6 +97,7 @@ function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
     ritmoObjetivo: row.ritmoObjetivo,
     nivel: row.nivel,
     cupoMaximo: toNumberOrNull(row.cupoMaximo),
+    esParticipante: row.esParticipante,
   };
 }
 
@@ -280,6 +284,7 @@ export async function getAll() {
   }
 }
 
+
 export async function getFiltered(params: GetFilteredParams = {}) {
   try {
     const conditions: ReturnType<typeof sql>[] = [
@@ -289,15 +294,12 @@ export async function getFiltered(params: GetFilteredParams = {}) {
     if (params.codigoDeporte) {
       conditions.push(sql`${entrenamiento.codigoDeporte} = ${params.codigoDeporte}`);
     }
-
     if (params.nivel) {
       conditions.push(sql`${entrenamiento.nivel} = ${params.nivel}`);
     }
-
     if (params.fecha) {
       conditions.push(sql`${entrenamiento.fechaInicio} >= ${params.fecha}::timestamptz`);
     }
-
     if (params.lat !== undefined && params.lng !== undefined) {
       const radioMeters = (params.radioKm ?? 10) * 1000;
       const point = `SRID=4326;POINT(${params.lng} ${params.lat})`;
@@ -305,6 +307,8 @@ export async function getFiltered(params: GetFilteredParams = {}) {
         sql`ST_DWithin(${entrenamiento.puntoEncuentro}, ST_GeogFromText(${point}), ${radioMeters})`
       );
     }
+
+    const emailUsuario = params.emailUsuario ?? "";
 
     const rows = await db
       .select({
@@ -320,6 +324,11 @@ export async function getFiltered(params: GetFilteredParams = {}) {
         ritmoObjetivo: entrenamiento.ritmoObjetivo,
         nivel: entrenamiento.nivel,
         cupoMaximo: entrenamiento.cupoMaximo,
+        esParticipante: sql<boolean>`EXISTS (
+          SELECT 1 FROM "USUARIO_ENTRENAMIENTO" p
+          WHERE p.codigo_entrenamiento = ${entrenamiento.codigoEntrenamiento}
+            AND p.email = ${emailUsuario}
+        )`,
       })
       .from(entrenamiento)
       .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
@@ -613,55 +622,110 @@ export async function remove(codigoEntrenamiento: number) {
 
 export async function getMisEntrenamientos(
   email: string
-): Promise<EntrenamientoListItem[]> {
+): Promise<{ organizados: EntrenamientoListItem[];
+             participando: EntrenamientoListItem[]}> {
   try {
-    const rows = await db
-      .select({
-        codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-        emailOrganizador: usuarioEntrenamiento.email,
-        codigoDeporte: entrenamiento.codigoDeporte,
-        descripcionDeporte: deporte.descripcionDeporte,
-        fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
-        fechaFin: sql`${entrenamiento.fechaFin}::text`,
-        estado: entrenamiento.estado,
-        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
-        distanciaEstimada: entrenamiento.distanciaEstimada,
-        ritmoObjetivo: entrenamiento.ritmoObjetivo,
-        nivel: entrenamiento.nivel,
-        cupoMaximo: entrenamiento.cupoMaximo,
-      })
-      .from(solicitud)
-      .innerJoin(
-        entrenamiento,
-        eq(
-          solicitud.codigoEntrenamiento,
-          entrenamiento.codigoEntrenamiento
-        )
-      )
-      .innerJoin(
-        deporte,
-        eq(deporte.nombre, entrenamiento.codigoDeporte)
-      )
-      .innerJoin(
-        usuarioEntrenamiento,
-        and(
-          eq(
-            usuarioEntrenamiento.codigoEntrenamiento,
-            entrenamiento.codigoEntrenamiento
-          ),
-          eq(usuarioEntrenamiento.rol, rolOrganizador)
-        )
-      )
-      .where(
-        and(
-          eq(solicitud.email, email),
-          eq(solicitud.estado, "aprobado")
-        )
-      )
-      .orderBy(asc(entrenamiento.fechaInicio));
+    const organizadosRows = await db
+  .select({
+    codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+    emailOrganizador: usuarioEntrenamiento.email,
+    codigoDeporte: entrenamiento.codigoDeporte,
+    descripcionDeporte: deporte.descripcionDeporte,
+    fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
+    fechaFin: sql`${entrenamiento.fechaFin}::text`,
+    estado: entrenamiento.estado,
+    puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+    distanciaEstimada: entrenamiento.distanciaEstimada,
+    ritmoObjetivo: entrenamiento.ritmoObjetivo,
+    nivel: entrenamiento.nivel,
+    cupoMaximo: entrenamiento.cupoMaximo,
+  })
+  .from(usuarioEntrenamiento)
+  .innerJoin(
+    entrenamiento,
+    eq(
+      usuarioEntrenamiento.codigoEntrenamiento,
+      entrenamiento.codigoEntrenamiento
+    )
+  )
+  .innerJoin(
+    deporte,
+    eq(
+      deporte.nombre,
+      entrenamiento.codigoDeporte
+    )
+  )
+  .where(
+    and(
+      eq(usuarioEntrenamiento.email, email),
+      eq(usuarioEntrenamiento.rol, "organizador")
+    )
+  )
+  .orderBy(
+    asc(entrenamiento.fechaInicio)
+  );
 
-    return rows.map((r) => mapEntrenamiento(r as EntrenamientoRow));
-  } catch (error) {
+  const participandoRows = await db
+  .select({
+    codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+    emailOrganizador: usuarioEntrenamiento.email,
+    codigoDeporte: entrenamiento.codigoDeporte,
+    descripcionDeporte: deporte.descripcionDeporte,
+    fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
+    fechaFin: sql`${entrenamiento.fechaFin}::text`,
+    estado: entrenamiento.estado,
+    puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+    distanciaEstimada: entrenamiento.distanciaEstimada,
+    ritmoObjetivo: entrenamiento.ritmoObjetivo,
+    nivel: entrenamiento.nivel,
+    cupoMaximo: entrenamiento.cupoMaximo,
+  })
+  .from(solicitud)
+  .innerJoin(
+    entrenamiento,
+    eq(
+      solicitud.codigoEntrenamiento,
+      entrenamiento.codigoEntrenamiento
+    )
+  )
+  .innerJoin(
+    deporte,
+    eq(
+      deporte.nombre,
+      entrenamiento.codigoDeporte
+    )
+  )
+  .innerJoin(
+    usuarioEntrenamiento,
+    and(
+      eq(
+        usuarioEntrenamiento.codigoEntrenamiento,
+        entrenamiento.codigoEntrenamiento
+      ),
+      eq(usuarioEntrenamiento.rol, rolOrganizador)
+    )
+  )
+  .where(
+    and(
+      eq(solicitud.email, email),
+      eq(solicitud.estado, "aprobado")
+    )
+  )
+  .orderBy(
+    asc(entrenamiento.fechaInicio)
+  );
+
+  return {
+  organizados: organizadosRows.map((r) =>
+    mapEntrenamiento(r as EntrenamientoRow)
+  ),
+
+  participando: participandoRows.map((r) =>
+    mapEntrenamiento(r as EntrenamientoRow)
+  ),
+    }; } catch (error) {
     throwDatabaseUnavailable(error, "getMisEntrenamientos");
   }
 }
+
+

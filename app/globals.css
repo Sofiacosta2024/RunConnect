@@ -506,6 +506,15 @@
   line-height: 1.5;
 }
 
+.mis-entrenamientos-section{
+  margin:24px 0 14px;
+  font-size:1.35rem;
+  font-weight:700;
+  color:var(--rc-text);
+  border-bottom:1px solid rgba(255,255,255,.12);
+  padding-bottom:8px;
+}
+
 /* Estado vacío */
 
 .entrenamientos-vacio {

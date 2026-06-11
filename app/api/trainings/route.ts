@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import {
@@ -8,6 +9,7 @@ import {
 import type { EntrenamientoCreateDto } from "@/lib/entrenamiento-dto";
 import { getAuthenticatedOrganizerEmail } from "@/lib/organizer-auth";
 import { crearEntrenamientoConChat, getAll, getFiltered } from "@/services/entrenamientoService";
+import { getAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -21,11 +23,9 @@ function parseBodyLocation(body: Record<string, unknown>) {
 
 async function readJsonBody(request: Request) {
   const body = (await request.json()) as Record<string, unknown>;
-
   if (!body || typeof body !== "object") {
     throw new ValidationError("El cuerpo de la solicitud debe ser un objeto JSON valido.");
   }
-
   return body;
 }
 
@@ -46,6 +46,11 @@ export async function GET(request: Request) {
     const lng = rawLng ? Number(rawLng) : undefined;
     const radioKm = rawRadio ? Number(rawRadio) : undefined;
 
+    // Obtener el email del usuario logueado (opcional — puede no estar autenticado)
+    const auth = getAuth();
+    const session = await auth.api.getSession({ headers: await headers() });
+    const emailUsuario = session?.user?.email ?? "";
+
     if (!deporte && !nivel && !fecha && lat === undefined && lng === undefined) {
       const entrenamientos = await getAll();
       return NextResponse.json({ ok: true, data: entrenamientos });
@@ -58,6 +63,7 @@ export async function GET(request: Request) {
       lat,
       lng,
       radioKm,
+      emailUsuario,
     });
 
     return NextResponse.json({ ok: true, data: entrenamientos });
@@ -76,8 +82,7 @@ export async function POST(request: Request) {
 
     const dto: EntrenamientoCreateDto = {
       codigoDeporte: String(body.codigoDeporte ?? ""),
-      fechaInicio:
-        fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
+      fechaInicio: fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
       fechaFin: fechaFin === undefined || fechaFin === null ? "" : String(fechaFin),
       estado: String(body.estado ?? "") as EntrenamientoCreateDto["estado"],
       puntoEncuentro: parseBodyLocation(body) ?? "",
@@ -115,10 +120,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, data: entrenamiento }, { status: 201 });
   } catch (error) {
-    if (error instanceof EntrenamientoValidationError) {
-      return toApiErrorResponse(error);
-    }
-
     return toApiErrorResponse(error);
   }
 }

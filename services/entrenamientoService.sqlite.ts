@@ -31,6 +31,7 @@ export type EntrenamientoListItem = {
   ritmoObjetivo: string | null;
   nivel: string;
   cupoMaximo: number | null;
+  esParticipante?: boolean;
 };
 
 export type EntrenamientoInput = {
@@ -69,6 +70,7 @@ type EntrenamientoRow = {
   ritmoObjetivo: string | null;
   nivel: string;
   cupoMaximo: number | null;
+  esParticipante?: number | boolean;
 };
 
 const db = getSqliteDb();
@@ -93,6 +95,7 @@ function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
     ritmoObjetivo: row.ritmoObjetivo,
     nivel: row.nivel,
     cupoMaximo: toNumberOrNull(row.cupoMaximo),
+    esParticipante: Boolean(row.esParticipante),
   };
 }
 
@@ -649,7 +652,14 @@ export async function crearEntrenamientoConChat(
   }
 }
 
-export async function getMisEntrenamientos(email: string) {
-    // implementar o devolver un array vacío por ahora
-    return [];
+export async function getMisEntrenamientos(
+  email: string
+): Promise<{
+  organizados: EntrenamientoListItem[];
+  participando: EntrenamientoListItem[];
+}> {
+  return {
+    organizados: [],
+    participando: [],
+  };
 }

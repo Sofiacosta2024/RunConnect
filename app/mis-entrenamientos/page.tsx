@@ -17,7 +17,7 @@ export default async function MisEntrenamientosPage() {
     redirect("/login");
   }
 
-  const entrenamientos = await getMisEntrenamientos(
+  const { organizados, participando } = await getMisEntrenamientos(
     session.user.email
   );
 
@@ -36,30 +36,45 @@ return (
       </div>
 
       <div className="entrenamientos-lista">
-        {entrenamientos.length === 0 ? (
-          <div className="entrenamientos-vacio">
-            <div className="entrenamientos-vacio-icono">
-              🏃
-            </div>
 
-            <p className="entrenamientos-vacio-texto">
-              Todavía no tenés entrenamientos aprobados.
-            </p>
+          <h2 className="mis-entrenamientos-section">
+            🏅 Entrenamientos que organizo
+          </h2>
 
+          {organizados.length === 0 ? (
             <p className="entrenamientos-vacio-sub">
-              Cuando un organizador apruebe una solicitud,
-              aparecerán en esta sección.
+              Todavía no creaste entrenamientos.
             </p>
-          </div>
-        ) : (
-          entrenamientos.map((e) => (
-            <EntrenamientoCard
-              key={e.codigoEntrenamiento}
-              entrenamiento={e}
-            />
-          ))
-        )}
-      </div>
+          ) : (
+            organizados.map((e) => (
+              <EntrenamientoCard
+                key={`org-${e.codigoEntrenamiento}`}
+                entrenamiento={e}
+              />
+            ))
+          )}
+
+          <h2
+            className="mis-entrenamientos-section"
+            style={{ marginTop: 40 }}
+          >
+            🙋 Entrenamientos donde participo
+          </h2>
+
+          {participando.length === 0 ? (
+            <p className="entrenamientos-vacio-sub">
+              No tenés solicitudes aprobadas.
+            </p>
+          ) : (
+            participando.map((e) => (
+              <EntrenamientoCard
+                key={`part-${e.codigoEntrenamiento}`}
+                entrenamiento={e}
+              />
+            ))
+          )}
+
+        </div>
     </div>
   </div>
 );

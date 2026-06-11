@@ -50,6 +50,7 @@ export default function Navbar() {
         <li><Link href="/">Muro</Link></li>
         <li><Link href="/entrenamientos">Entrenamientos</Link></li>
         <li> <Link href="/mis-entrenamientos">Mis entrenamientos</Link></li>
+        <li> <Link href="/solicitudes">Solicitudes</Link></li>
         {!loading && (
           session ? (
             <>
