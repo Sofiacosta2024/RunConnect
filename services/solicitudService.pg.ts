@@ -1,7 +1,7 @@
 import "server-only";
 
 import { asc, and, eq, count,sql} from "drizzle-orm";
-
+import { enviarMail } from "@/services/mailService";
 import { db } from "@/lib/db";
 import {
   solicitud,
@@ -14,6 +14,7 @@ import {
   ValidationError,
   NotFoundError,
 } from "@/lib/api-errors";
+
 
 export async function crearSolicitud(
   email: string,
@@ -110,6 +111,13 @@ if (entrenamientoInfo[0].emailOrganizador === email) {
       fecha: ahora,
     })
     .returning();
+
+    try { 
+    await enviarMail(
+   entrenamientoInfo[0].emailOrganizador,
+  "Nueva solicitud de participación",
+  `${email} solicitó participar en uno de tus entrenamientos.`
+); } catch (e) { console.error("Error enviando mail:", e); }
 
   return nueva[0];
 }
@@ -300,6 +308,13 @@ export async function aceptarSolicitud(
         rol: "participante",
       });
 
+      try{
+      await enviarMail(
+        sol.email,
+        "Solicitud aceptada",
+        "Tu solicitud fue aceptada. Ya formás parte del entrenamiento."
+      );}
+      catch (e) { console.error("Error enviando mail:", e); }
     return {
       ok: true,
     };
@@ -368,6 +383,13 @@ export async function rechazarSolicitud(
         )
       );
 
+      try{
+      await enviarMail(
+        sol.email,
+        "Solicitud rechazada",
+        "El organizador rechazó tu solicitud de participación."
+      );}
+      catch (e) { console.error("Error enviando mail:", e); }
     return {
       ok: true,
     };
@@ -453,7 +475,29 @@ export async function getSolicitudesPendientesDelOrganizador(
 }
 
 export async function rechazarSolicitudesExpiradas() {
-  const resultado = await db.execute(sql`
+  const solicitudes = await db
+    .select({
+      codigoSolicitud: solicitud.codigoSolicitud,
+      email: solicitud.email,
+    })
+    .from(solicitud)
+    .innerJoin(
+      entrenamiento,
+      eq(
+        solicitud.codigoEntrenamiento,
+        entrenamiento.codigoEntrenamiento
+      )
+    )
+    .where(sql`
+      ${solicitud.estado} = 'pendiente'
+      AND ${entrenamiento.fechaInicio} <= NOW() + INTERVAL '2 hours'
+    `);
+
+  if (solicitudes.length === 0) {
+    return 0;
+  }
+
+  await db.execute(sql`
     UPDATE "SOLICITUD"
     SET estado = 'rechazado'
     WHERE estado = 'pendiente'
@@ -464,5 +508,13 @@ export async function rechazarSolicitudesExpiradas() {
       )
   `);
 
-  return resultado.rowCount ?? 0;
+  for (const s of solicitudes) {
+    void enviarMail(
+      s.email,
+      "Solicitud vencida",
+      "Tu solicitud fue rechazada automáticamente porque el entrenamiento comienza en menos de 2 horas."
+    );
+  }
+
+  return solicitudes.length;
 }

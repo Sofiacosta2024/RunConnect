@@ -37,6 +37,4 @@ export async function getSolicitudesPendientesDelOrganizador(
 
 export async function rechazarSolicitudesExpiradas() {
   return 0;
-} {
-  throw new Error("No implementado");
 }
