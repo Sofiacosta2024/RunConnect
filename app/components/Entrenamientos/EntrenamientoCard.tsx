@@ -2,6 +2,7 @@
 import type { EntrenamientoListItem } from "@/services/entrenamientoService";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PopupCalificarParticipantes from "./PopupCalificarParticipantes";
 
 type Props = {
   entrenamiento: EntrenamientoListItem;
@@ -42,6 +43,8 @@ function distanceLabel(km: number | null) {
 export default function EntrenamientoCard({ entrenamiento, mostrarBotonSolicitud = false, esOrganizador = false }: Props) {
 const [loading, setLoading] = useState(false);
 const [enviada, setEnviada] = useState(false);
+const [finalizando, setFinalizando] = useState(false);
+const [showPopup, setShowPopup] = useState(false);
 const router = useRouter();
 
 async function solicitarParticipacion() {
@@ -66,6 +69,29 @@ async function solicitarParticipacion() {
     alert("Error de conexión");
   } finally {
     setLoading(false);
+  }
+}
+
+async function handleFinalizar() {
+  try {
+    setFinalizando(true);
+
+    const res = await fetch(
+      `/api/trainings/${entrenamiento.codigoEntrenamiento}/finalize`,
+      { method: "PATCH" }
+    );
+
+    if (!res.ok) {
+      const error = await res.json();
+      alert(error.error ?? "No se pudo finalizar el entrenamiento");
+      return;
+    }
+
+    setShowPopup(true);
+  } catch {
+    alert("Error de conexión");
+  } finally {
+    setFinalizando(false);
   }
 }
 
@@ -121,7 +147,16 @@ async function solicitarParticipacion() {
           value={entrenamiento.estado}
         />
       </div>
-      {mostrarBotonSolicitud && !esOrganizador ? (
+      {entrenamiento.estado === "finalizado" ? (
+        <div className="entrenamiento-actions">
+          <button
+            className="rc-btn-primary"
+            onClick={() => router.push(`/rating/${entrenamiento.codigoEntrenamiento}`)}
+          >
+            ⭐ Calificar
+          </button>
+        </div>
+      ) : mostrarBotonSolicitud && !esOrganizador ? (
         <div className="entrenamiento-actions">
           <button
             className="rc-btn-primary"
@@ -133,6 +168,16 @@ async function solicitarParticipacion() {
               : enviada
               ? "Solicitud enviada"
               : "Solicitar participación"}
+          </button>
+        </div>
+      ) : esOrganizador && entrenamiento.estado !== "cancelado" ? (
+        <div className="entrenamiento-actions">
+          <button
+            className="rc-btn-primary"
+            onClick={handleFinalizar}
+            disabled={finalizando}
+          >
+            {finalizando ? "Finalizando..." : "🏁 Finalizar"}
           </button>
         </div>
       ) : (
@@ -156,6 +201,12 @@ async function solicitarParticipacion() {
           </button>
         </div>
       )}
+
+      <PopupCalificarParticipantes
+        open={showPopup}
+        codigoEntrenamiento={entrenamiento.codigoEntrenamiento}
+        onClose={() => setShowPopup(false)}
+      />
     </div>
   );
 }

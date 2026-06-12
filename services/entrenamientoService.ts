@@ -50,6 +50,11 @@ export async function remove(codigoEntrenamiento: number) {
   return service.remove(codigoEntrenamiento);
 }
 
+export async function finalizar(codigoEntrenamiento: number, emailOrganizador: string) {
+  const service = await getService();
+  return service.finalizar(codigoEntrenamiento, emailOrganizador);
+}
+
 export async function crearEntrenamientoConChat(
   emailOrganizador: string,
   input: Omit<import("./entrenamientoService.pg").EntrenamientoInput, "estado">

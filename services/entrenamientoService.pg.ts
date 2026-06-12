@@ -602,6 +602,41 @@ export async function update(codigoEntrenamiento: number, input: EntrenamientoIn
   }
 }
 
+export async function finalizar(codigoEntrenamiento: number, emailOrganizador: string) {
+  if (!isFinitePositiveInteger(codigoEntrenamiento)) {
+    throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");
+  }
+
+  try {
+    const orgRow = await db
+      .select()
+      .from(usuarioEntrenamiento)
+      .where(
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, codigoEntrenamiento),
+          eq(usuarioEntrenamiento.email, emailOrganizador),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
+      .limit(1);
+
+    if (!orgRow.length) {
+      throw new ValidationError("No sos el organizador de este entrenamiento.");
+    }
+
+    const updateResult = await db.execute(
+      sql`UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE codigo_entrenamiento = ${codigoEntrenamiento} RETURNING codigo_entrenamiento`
+    );
+
+    const updatedId = updateResult.rows?.[0]?.codigo_entrenamiento;
+    if (!updatedId) throw new NotFoundError("Entrenamiento no encontrado.");
+    return getById(Number(updatedId));
+  } catch (error) {
+    if (error instanceof NotFoundError) throw error;
+    throwDatabaseUnavailable(error, "finalizar");
+  }
+}
+
 export async function remove(codigoEntrenamiento: number) {
   if (!isFinitePositiveInteger(codigoEntrenamiento)) {
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");

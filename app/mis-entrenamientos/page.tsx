@@ -50,6 +50,7 @@ return (
               <EntrenamientoCard
                 key={`org-${e.codigoEntrenamiento}`}
                 entrenamiento={e}
+                esOrganizador={true}
               />
             ))
           )}
