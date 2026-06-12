@@ -262,7 +262,7 @@ export async function getAll() {
         ORDER BY e.fecha_inicio DESC, e.codigo_entrenamiento DESC
       `
       )
-      .all(rolOrganizador);
+      .all(rolOrganizador) as EntrenamientoRow[];
 
     return rows.map((row: EntrenamientoRow) => mapEntrenamiento(row));
   } catch (error) {
