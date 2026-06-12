@@ -7,7 +7,7 @@ const publicPrefixes = ["/api/auth", "/api/logout", "/_next", "/favicon.ico"];
 
 function isPublicPath(pathname: string) {
   if (publicPaths.has(pathname)) return true;
-  //return true;
+  return true;
   return publicPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
