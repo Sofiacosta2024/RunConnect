@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 import path from "path";
 
 declare global {
-  var __runconnectSqlite: Database | undefined;
+  var __runconnectSqlite: InstanceType<typeof Database> | undefined;
 }
 
 const defaultPath = path.resolve(process.cwd(), "runconnect.sqlite");
