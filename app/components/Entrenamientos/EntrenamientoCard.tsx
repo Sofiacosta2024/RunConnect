@@ -121,7 +121,6 @@ async function handleFinalizar() {
         filter: esFinalizado && !puedeCalificar ? "grayscale(0.6)" : "none",
       }}
     >
-      {/* Estado badge arriba */}
       <div
         style={{
           display: "flex",
@@ -181,14 +180,17 @@ async function handleFinalizar() {
 
       <div className="rc-stats-grid">
         <EntrenamientoStat
+          icon="📏"
           label="Distancia"
           value={distanceLabel(entrenamiento.distanciaEstimada)}
         />
         <EntrenamientoStat
+          icon="⚡"
           label="Ritmo"
           value={entrenamiento.ritmoObjetivo ?? "—"}
         />
         <EntrenamientoStat
+          icon="👥"
           label="Cupo"
           value={
             entrenamiento.cupoMaximo !== null
@@ -282,15 +284,18 @@ async function handleFinalizar() {
 }
 
 function EntrenamientoStat({
+  icon,
   label,
   value,
 }: {
+  icon: string;
   label: string;
   value: string;
 }) {
   return (
     <div className="rc-wstat">
       <div className="rc-wstat-val" style={{ fontSize: "14px" }}>
+        <span style={{ marginRight: 4 }}>{icon}</span>
         {value}
       </div>
       <div className="rc-wstat-label">{label}</div>
