@@ -48,7 +48,7 @@ export async function getAuthenticatedOrganizerEmail(headers: Headers) {
 
   if (!result.rows[0]) {
     await pool.query(
-      `INSERT INTO "USUARIO" (email, nombre) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING`,
+      `INSERT INTO "USUARIO" (email, nombre, rol) VALUES ($1, $2, 'usuario') ON CONFLICT (email) DO NOTHING`,
       [email, session.user.name ?? email]
     );
   }

@@ -7,6 +7,7 @@ export default function Navbar() {
   const [session, setSession] = useState<null | { user: { email?: string; name?: string } }>(null);
   const [loading, setLoading] = useState(true);
   const [noLeidas, setNoLeidas] = useState(0);
+  const [esAdmin, setEsAdmin] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -35,6 +36,17 @@ export default function Navbar() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setEsAdmin(false);
+      return;
+    }
+    fetch("/api/user-role", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setEsAdmin(data.rol === "admin"))
+      .catch(() => setEsAdmin(false));
+  }, [session]);
 
   useEffect(() => {
     if (!session) return;
@@ -98,6 +110,9 @@ export default function Navbar() {
                 </Link>
               </li>
               <li><Link href="/perfil">Mi perfil</Link></li>
+              {esAdmin && (
+                <li><Link href="/admin" style={{ color: "var(--rc-accent)" }}>Admin</Link></li>
+              )}
               <li>
                 <button type="button" onClick={handleLogout}>
                   Cerrar sesión

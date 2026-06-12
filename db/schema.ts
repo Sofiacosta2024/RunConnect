@@ -37,6 +37,7 @@ export const usuario = pgTable("USUARIO", {
 	fotoPerfil: text("foto_perfil"),
 	ubicacion: text("ubicacion"),
 	codigoDeporte: text("codigo_deporte").references(() => deporte.nombre),
+	rol: text("rol").notNull().default("usuario"),
 });
 
 export const entrenamiento = pgTable("ENTRENAMIENTO", {

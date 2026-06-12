@@ -19,6 +19,7 @@ try {
       foto_perfil TEXT,
       ubicacion TEXT,
       codigo_deporte TEXT,
+      rol TEXT NOT NULL DEFAULT 'usuario',
       FOREIGN KEY (codigo_deporte) REFERENCES "DEPORTE"(nombre)
     );
 
@@ -94,14 +95,15 @@ try {
   insertDeporte.run("RUN", "Running");
 
   const insertUsuario = db.prepare(
-    'INSERT OR IGNORE INTO "USUARIO" (email, nombre, foto_perfil, ubicacion, codigo_deporte) VALUES (?, ?, ?, ?, ?)'
+    'INSERT OR IGNORE INTO "USUARIO" (email, nombre, foto_perfil, ubicacion, codigo_deporte, rol) VALUES (?, ?, ?, ?, ?, ?)'
   );
   insertUsuario.run(
     "local@runconnect.test",
     "Local Organizer",
     null,
     "Buenos Aires",
-    "RUN"
+    "RUN",
+    "admin"
   );
 
   const countEntrenamientos = db.prepare(
