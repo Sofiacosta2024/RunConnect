@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { calificacion, usuario, usuarioEntrenamiento } from "@/db/schema";
-import { and, avg, count, eq, sql } from "drizzle-orm";
+import { avg, count, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getAuth } from "@/lib/auth";
 
@@ -11,12 +11,19 @@ export type PerfilData = {
   nombre: string;
   fotoPerfil: string | null;
   ubicacion: string | null;
+  ubicacionDisplay: string | null;
   codigoDeporte: string | null;
   promedioCalificacion: number | null;
   cantidadCalificaciones: number;
   entrenamientosOrganizados: number;
   entrenamientosParticipados: number;
 };
+
+function parseUbicacionDisplay(ubicacion: string | null): string | null {
+  if (!ubicacion) return null;
+  if (ubicacion.includes("|")) return ubicacion.split("|")[1];
+  return ubicacion;
+}
 
 export async function getPerfilPropio(): Promise<PerfilData> {
   const auth = getAuth();
@@ -39,7 +46,6 @@ export async function getPerfilPropio(): Promise<PerfilData> {
 
   if (!perfil) throw new Error("Usuario no encontrado");
 
-  // Promedio y cantidad de calificaciones recibidas
   const [stats] = await db
     .select({
       promedio: avg(calificacion.puntaje),
@@ -48,7 +54,6 @@ export async function getPerfilPropio(): Promise<PerfilData> {
     .from(calificacion)
     .where(eq(calificacion.emailCalificado, email));
 
-  // Entrenamientos organizados y participados
   const participaciones = await db
     .select({ rol: usuarioEntrenamiento.rol })
     .from(usuarioEntrenamiento)
@@ -59,6 +64,7 @@ export async function getPerfilPropio(): Promise<PerfilData> {
 
   return {
     ...perfil,
+    ubicacionDisplay: parseUbicacionDisplay(perfil.ubicacion),
     promedioCalificacion: stats.promedio ? Math.round(Number(stats.promedio) * 10) / 10 : null,
     cantidadCalificaciones: Number(stats.cantidad),
     entrenamientosOrganizados: organizados,
@@ -74,8 +80,20 @@ export async function actualizarPerfil(data: {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.email) throw new Error("No autenticado");
 
-  const ubicacion = data.ubicacion?.trim() || null;
   const codigoDeporte = data.codigoDeporte?.trim() || null;
+  let ubicacion: string | null = null;
+
+  if (data.ubicacion?.trim()) {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(data.ubicacion.trim())}&format=json&limit=1`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "RunConnect/1.0" },
+    });
+    const json = await res.json();
+    if (!json || json.length === 0) {
+      throw new Error("No se encontró la dirección. Intentá ser más específico.");
+    }
+    ubicacion = `${json[0].lat},${json[0].lon}|${data.ubicacion.trim()}`;
+  }
 
   await db
     .update(usuario)
