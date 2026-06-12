@@ -103,6 +103,25 @@ if (entrenamientoInfo[0].emailOrganizador === email) {
   );
 }
 
+// Contar participantes aceptados
+const participantes = await db
+  .select()
+  .from(usuarioEntrenamiento)
+  .where(
+    and(
+      eq(
+        usuarioEntrenamiento.codigoEntrenamiento,
+        codigoEntrenamiento
+      ),
+      eq(usuarioEntrenamiento.rol, "participante")
+    )
+  );
+
+  // Si el cupo está lleno, no permitir la solicitud
+  if ( ent.cupoMaximo !== null && participantes.length >= ent.cupoMaximo) {
+          throw new Error( "El entrenamiento ya no tiene cupos disponibles.");
+  }
+
   const nueva = await db
     .insert(solicitud)
     .values({
@@ -436,6 +455,18 @@ export async function rechazarSolicitud(
         "El organizador rechazó tu solicitud de participación."
       );}
       catch (e) { console.error("Error enviando mail:", e); }
+
+      try {
+          await crearNotificacion(
+            sol.email,
+            "solicitud_rechazada",
+            "Tu solicitud para participar en el entrenamiento fue rechazada.",
+            sol.codigoEntrenamiento
+          );
+        } catch (e) {
+          console.error("Error creando notificacion:", e);
+        }
+
     return {
       ok: true,
     };

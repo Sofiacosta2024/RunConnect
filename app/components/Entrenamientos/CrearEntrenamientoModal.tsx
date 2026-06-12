@@ -270,7 +270,7 @@ export default function CrearEntrenamientoModal({
             </div>
 
             <div className="rc-field">
-              <label className="rc-field-label">Cupo máximo</label>
+              <label className="rc-field-label">Cupo máximo (Incluyendo al organizador)</label>
               <input
                 className="rc-field-input"
                 type="number"
