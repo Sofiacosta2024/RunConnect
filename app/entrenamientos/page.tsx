@@ -17,6 +17,7 @@ export default function EntrenamientosPage() {
   const [deporte, setDeporte] = useState("");
   const [nivel, setNivel] = useState("");
   const [fecha, setFecha] = useState("");
+  const [radio, setRadio] = useState(10);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [ubicacion, setUbicacion] = useState<{
     lat: number;
@@ -72,7 +73,7 @@ export default function EntrenamientosPage() {
         if (ubicacion) {
           params.set("lat", String(ubicacion.lat));
           params.set("lng", String(ubicacion.lng));
-          params.set("radio", "10");
+          params.set("radio", String(radio));
         }
 
         const qs = params.toString();
@@ -106,12 +107,13 @@ export default function EntrenamientosPage() {
     return () => {
       cancelled = true;
     };
-  }, [deporte, nivel, fecha, ubicacion]);
+  }, [deporte, nivel, fecha, ubicacion, radio]);
 
   function limpiarFiltros() {
     setDeporte("");
     setNivel("");
     setFecha("");
+    setRadio(10);
   }
 
   const hayFiltros = deporte || nivel || fecha;
@@ -124,7 +126,7 @@ export default function EntrenamientosPage() {
           <h1 className="entrenamientos-title">Entrenamientos</h1>
           <p className="entrenamientos-subtitle">
             {ubicacion
-              ? "Entrenamientos disponibles en un radio de 10 km"
+              ? `Entrenamientos disponibles en un radio de ${radio} km`
               : "Entrenamientos disponibles"}
           </p>
         </div>
@@ -178,6 +180,21 @@ export default function EntrenamientosPage() {
               className="filtro-date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
+            />
+          </div>
+
+          <div className="filtro-group" style={{ minWidth: "160px" }}>
+            <label className="filtro-label" htmlFor="filtro-distancia">
+              Distancia {radio} km
+            </label>
+            <input
+              id="filtro-distancia"
+              type="range"
+              min="1"
+              max="50"
+              value={radio}
+              onChange={(e) => setRadio(Number(e.target.value))}
+              style={{ accentColor: "var(--rc-accent)", width: "100%" }}
             />
           </div>
 
@@ -239,7 +256,7 @@ export default function EntrenamientosPage() {
           if (ubicacion) {
             params.set("lat", String(ubicacion.lat));
             params.set("lng", String(ubicacion.lng));
-            params.set("radio", "10");
+            params.set("radio", String(radio));
           }
           const qs = params.toString();
           const url = qs ? `/api/trainings?${qs}` : "/api/trainings";
