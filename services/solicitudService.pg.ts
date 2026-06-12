@@ -2,6 +2,7 @@ import "server-only";
 
 import { asc, and, eq, count,sql} from "drizzle-orm";
 import { enviarMail } from "@/services/mailService";
+import { crearNotificacion } from "@/services/notificacionService";
 import { db } from "@/lib/db";
 import {
   solicitud,
@@ -118,6 +119,21 @@ if (entrenamientoInfo[0].emailOrganizador === email) {
   "Nueva solicitud de participación",
   `${email} solicitó participar en uno de tus entrenamientos.`
 ); } catch (e) { console.error("Error enviando mail:", e); }
+
+    try {
+      const solicitante = await db
+        .select({ nombre: usuario.nombre })
+        .from(usuario)
+        .where(eq(usuario.email, email))
+        .limit(1);
+      const nombreSolicitante = solicitante[0]?.nombre ?? email;
+      await crearNotificacion(
+        entrenamientoInfo[0].emailOrganizador,
+        "nueva_solicitud",
+        `${nombreSolicitante} quiere unirse a tu entrenamiento`,
+        codigoEntrenamiento
+      );
+    } catch (e) { console.error("Error creando notificacion:", e); }
 
   return nueva[0];
 }
@@ -335,6 +351,16 @@ export async function aceptarSolicitud(
         "Tu solicitud fue aceptada. Ya formás parte del entrenamiento."
       );}
       catch (e) { console.error("Error enviando mail:", e); }
+
+      try {
+        await crearNotificacion(
+          sol.email,
+          "solicitud_aceptada",
+          `Fuiste aceptado en el entrenamiento`,
+          sol.codigoEntrenamiento
+        );
+      } catch (e) { console.error("Error creando notificacion:", e); }
+
     return {
       ok: true,
     };

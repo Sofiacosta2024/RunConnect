@@ -8,6 +8,13 @@
       "when": 1781036123099,
       "tag": "0000_odd_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781232989107,
+      "tag": "0001_stiff_red_ghost",
+      "breakpoints": true
     }
   ]
 }

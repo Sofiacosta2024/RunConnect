@@ -1,6 +1,7 @@
 "use client";
 import type { EntrenamientoListItem } from "@/services/entrenamientoService";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   entrenamiento: EntrenamientoListItem;
@@ -41,6 +42,7 @@ function distanceLabel(km: number | null) {
 export default function EntrenamientoCard({ entrenamiento, mostrarBotonSolicitud = false, esOrganizador = false }: Props) {
 const [loading, setLoading] = useState(false);
 const [enviada, setEnviada] = useState(false);
+const router = useRouter();
 
 async function solicitarParticipacion() {
   try {
@@ -119,7 +121,7 @@ async function solicitarParticipacion() {
           value={entrenamiento.estado}
         />
       </div>
-      {mostrarBotonSolicitud && !esOrganizador && (
+      {mostrarBotonSolicitud && !esOrganizador ? (
         <div className="entrenamiento-actions">
           <button
             className="rc-btn-primary"
@@ -131,6 +133,26 @@ async function solicitarParticipacion() {
               : enviada
               ? "Solicitud enviada"
               : "Solicitar participación"}
+          </button>
+        </div>
+      ) : (
+        <div className="entrenamiento-actions">
+          <button
+            className="rc-btn-secondary"
+            onClick={() => router.push(`/chat/${entrenamiento.codigoEntrenamiento}`)}
+            style={{
+              background: "rgba(255,60,60,0.1)",
+              border: "1px solid rgba(255,60,60,0.2)",
+              color: "#FF3C3C",
+              padding: "8px 20px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            💬 Chat del grupo
           </button>
         </div>
       )}

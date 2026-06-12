@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 export default function Navbar() {
   const [session, setSession] = useState<null | { user: { email?: string; name?: string } }>(null);
   const [loading, setLoading] = useState(true);
+  const [noLeidas, setNoLeidas] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -35,6 +36,24 @@ export default function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!session) return;
+    const cargarNoLeidas = async () => {
+      try {
+        const res = await fetch("/api/notificaciones");
+        if (res.ok) {
+          const data = await res.json();
+          setNoLeidas(data.noLeidas ?? 0);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    cargarNoLeidas();
+    const intervalo = setInterval(cargarNoLeidas, 15000);
+    return () => clearInterval(intervalo);
+  }, [session]);
+
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });
     window.location.href = "/login";
@@ -54,6 +73,30 @@ export default function Navbar() {
         {!loading && (
           session ? (
             <>
+              <li style={{ position: "relative" }}>
+                <Link href="/notificaciones" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  🔔
+                  {noLeidas > 0 && (
+                    <span style={{
+                      background: "#FF3C3C",
+                      color: "#fff",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      borderRadius: "50%",
+                      width: 18,
+                      height: 18,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      position: "absolute",
+                      top: -6,
+                      right: -10,
+                    }}>
+                      {noLeidas > 9 ? "9+" : noLeidas}
+                    </span>
+                  )}
+                </Link>
+              </li>
               <li><Link href="/perfil">Mi perfil</Link></li>
               <li>
                 <button type="button" onClick={handleLogout}>

@@ -158,6 +158,16 @@ export const solicitud = pgTable("SOLICITUD", {
 	fecha: timestamp("fecha", { withTimezone: true }).notNull(),
 });
 
+export const notificacion = pgTable("NOTIFICACION", {
+  codigoNotificacion: serial("codigo_notificacion").primaryKey(),
+  email: text("email").notNull().references(() => usuario.email),
+  tipo: text("tipo").notNull(),
+  mensaje: text("mensaje").notNull(),
+  codigoEntrenamiento: integer("codigo_entrenamiento"),
+  leida: integer("leida").notNull().default(0),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const grupoSolicitud = pgTable(
 	"GRUPO_SOLICITUD",
 	{

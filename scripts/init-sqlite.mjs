@@ -75,6 +75,17 @@ try {
       FOREIGN KEY (email) REFERENCES "USUARIO"(email),
       FOREIGN KEY (codigo_entrenamiento) REFERENCES "ENTRENAMIENTO"(codigo_entrenamiento)
     );
+
+    CREATE TABLE IF NOT EXISTS "NOTIFICACION" (
+      codigo_notificacion INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      mensaje TEXT NOT NULL,
+      codigo_entrenamiento INTEGER,
+      leida INTEGER NOT NULL DEFAULT 0,
+      creado_en TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (email) REFERENCES "USUARIO"(email)
+    );
   `);
 
   const insertDeporte = db.prepare(
