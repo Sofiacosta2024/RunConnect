@@ -171,13 +171,30 @@ async function handleFinalizar() {
           </button>
         </div>
       ) : esOrganizador && entrenamiento.estado !== "cancelado" ? (
-        <div className="entrenamiento-actions">
+        <div className="entrenamiento-actions" style={{ display: "flex", gap: 8 }}>
           <button
             className="rc-btn-primary"
             onClick={handleFinalizar}
             disabled={finalizando}
           >
             {finalizando ? "Finalizando..." : "🏁 Finalizar"}
+          </button>
+          <button
+            className="rc-btn-secondary"
+            onClick={() => router.push(`/chat/${entrenamiento.codigoEntrenamiento}`)}
+            style={{
+              background: "rgba(255,60,60,0.1)",
+              border: "1px solid rgba(255,60,60,0.2)",
+              color: "#FF3C3C",
+              padding: "8px 20px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            💬 Chat del grupo
           </button>
         </div>
       ) : (
