@@ -97,7 +97,7 @@ function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
     ritmoObjetivo: row.ritmoObjetivo,
     nivel: row.nivel,
     cupoMaximo: toNumberOrNull(row.cupoMaximo),
-    esParticipante: row.esParticipante === 1,
+    esParticipante: Boolean(row.esParticipante),
   };
 }
 

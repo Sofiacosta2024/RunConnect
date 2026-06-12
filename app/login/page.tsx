@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { authClient } from "@/lib/auth-client";
+import { getAuthClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
@@ -14,6 +14,7 @@ export default function LoginPage() {
       ? `${window.location.origin}${callbackPath}`
       : callbackPath;
 
+    const authClient = getAuthClient();
     await authClient.signIn.social({
       provider: "google",
       callbackURL,

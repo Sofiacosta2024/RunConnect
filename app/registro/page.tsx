@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { authClient } from "@/lib/auth-client";
+import { getAuthClient} from "@/lib/auth-client";
 
 export default function RegisterPage() {
   const searchParams = useSearchParams();
   const callbackURL = searchParams.get("next") ?? "/entrenamientos";
 
   const onContinueWithGoogle = async () => {
+    const authClient = getAuthClient();
     await authClient.signIn.social({
       provider: "google",
       callbackURL,
