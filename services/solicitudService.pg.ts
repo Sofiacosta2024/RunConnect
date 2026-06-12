@@ -299,6 +299,26 @@ export async function aceptarSolicitud(
         )
       );
 
+      const yaParticipa = await tx
+          .select()
+          .from(usuarioEntrenamiento)
+          .where(
+            and(
+              eq(usuarioEntrenamiento.codigoEntrenamiento, sol.codigoEntrenamiento),
+              eq(usuarioEntrenamiento.email, sol.email)
+            )
+          )
+          .limit(1);
+
+        if (yaParticipa.length > 0) {
+          // Ya está en el grupo, solo actualizar el estado de la solicitud
+          await tx
+            .update(solicitud)
+            .set({ estado: "aprobado" })
+            .where(eq(solicitud.codigoSolicitud, codigoSolicitud));
+          return { ok: true };
+        }
+
     await tx
       .insert(usuarioEntrenamiento)
       .values({
@@ -465,7 +485,11 @@ export async function getSolicitudesPendientesDelOrganizador(
         eq(
           solicitud.estado,
           "pendiente"
-        )
+        ),
+        eq( 
+          entrenamiento.estado, "abierto"
+        ),
+        sql`${entrenamiento.fechaInicio} > NOW() + INTERVAL '2 hours'`
       )
     )
 

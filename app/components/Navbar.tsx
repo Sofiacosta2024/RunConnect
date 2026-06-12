@@ -54,15 +54,12 @@ export default function Navbar() {
         {!loading && (
           session ? (
             <>
-              <li className="rc-nav-user">{session.user?.name ?? session.user?.email ?? "Usuario"}</li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                  >
-                    Cerrar sesión
-                  </button>
-                </li>
+              <li><Link href="/perfil">Mi perfil</Link></li>
+              <li>
+                <button type="button" onClick={handleLogout}>
+                  Cerrar sesión
+                </button>
+              </li>
             </>
           ) : (
             <li>
@@ -71,8 +68,8 @@ export default function Navbar() {
               </Link>
             </li>
           )
-        )}
-      </ul>
+        )}     
+     </ul>
     </nav>
   );
 }

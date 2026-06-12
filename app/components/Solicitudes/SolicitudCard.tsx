@@ -191,7 +191,7 @@ export default function SolicitudCard({ solicitud }: Props) {
             >
               {accionPendiente === "accept"
                 ? <Spinner color="white" />
-                : "✅"} Aceptar
+                : ""} Aceptar
             </button>
 
             <button
@@ -213,7 +213,7 @@ export default function SolicitudCard({ solicitud }: Props) {
             >
               {accionPendiente === "reject"
                 ? <Spinner color="#dc2626" />
-                : "❌"} Rechazar
+                : ""} Rechazar
             </button>
           </div>
 
