@@ -6,9 +6,9 @@ const publicPaths = new Set(["/login", "/registro", "/api/auth"]);
 const publicPrefixes = ["/api/auth", "/api/logout", "/_next", "/favicon.ico"];
 
 function isPublicPath(pathname: string) {
-  //if (publicPaths.has(pathname)) return true;
-  return true;
-  //return publicPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (publicPaths.has(pathname)) return true;
+  //return true;
+  return publicPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 export async function proxy(request: NextRequest) {
