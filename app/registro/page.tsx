@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 import { getAuthClient} from "@/lib/auth-client";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const searchParams = useSearchParams();
   const callbackURL = searchParams.get("next") ?? "/entrenamientos";
 
@@ -66,5 +67,13 @@ export default function RegisterPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="rc-root rc-auth-page"><div className="rc-auth-grid"><main className="rc-auth-card"><div><h1 className="rc-auth-title">Crear cuenta</h1></div></main></div></div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

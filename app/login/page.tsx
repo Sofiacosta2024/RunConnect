@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 import { getAuthClient } from "@/lib/auth-client";
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const callbackPath = searchParams.get("next") ?? "/entrenamientos";
 
@@ -70,5 +71,13 @@ export default function LoginPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="rc-root rc-auth-page"><div className="rc-auth-grid"><main className="rc-auth-card"><div><h1 className="rc-auth-title">Iniciar sesión</h1></div></main></div></div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
