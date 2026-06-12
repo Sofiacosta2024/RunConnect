@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getSugerencias } from "@/app/sugerencias/actions";
-import TarjetaEntrenamiento from "@/app/sugerencias/TarjetaEntrenamiento";
 import type { EntrenamientoSugerido } from "@/app/sugerencias/actions";
+import EntrenamientoCard from "../Entrenamientos/EntrenamientoCard";
+import { EntrenamientoListItem } from "@/services/entrenamientoService";
 
 type Props = {
   sugerenciasIniciales: EntrenamientoSugerido[];
@@ -91,13 +92,33 @@ export default function Feed({ sugerenciasIniciales = [] }: Props) {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {sugerencias.map((e) => (
-            <TarjetaEntrenamiento
-              key={e.codigoEntrenamiento}
-              entrenamiento={e}
-              onVerDetalleAction={(id) => router.push(`/entrenamiento/${id}`)}
-            />
-          ))}
+          {sugerencias.map((e) => {
+            const item: EntrenamientoListItem = {
+              codigoEntrenamiento: e.codigoEntrenamiento,
+              emailOrganizador: "",
+              codigoDeporte: e.codigoDeporte,
+              descripcionDeporte: e.codigoDeporte,
+              fechaInicio: e.fechaInicio.toISOString(),
+              fechaFin: e.fechaFin.toISOString(),
+              estado: "abierto",
+              puntoEncuentro: null,
+              distanciaEstimada:
+                e.distanciaEstimada != null
+                  ? Number(e.distanciaEstimada)
+                  : null,
+              ritmoObjetivo: e.ritmoObjetivo,
+              nivel: e.nivel,
+              cupoMaximo: e.cupoMaximo,
+            };
+
+            return (
+              <EntrenamientoCard
+                key={item.codigoEntrenamiento}
+                entrenamiento={item}
+                mostrarBotonSolicitud
+              />
+            );
+          })}
         </div>
       )}
 
