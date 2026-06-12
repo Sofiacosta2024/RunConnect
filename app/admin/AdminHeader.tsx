@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/admin", label: "Dashboard", icon: "📊" },
   { href: "/admin/entrenamientos", label: "Entrenamientos", icon: "🏃" },
+  { href: "/admin/usuarios", label: "Usuarios", icon: "👥" },
 ];
 
 export default function AdminHeader() {

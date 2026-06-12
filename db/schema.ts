@@ -1,4 +1,5 @@
 import {
+	boolean,
 	customType,
 	date,
 	foreignKey,
@@ -38,6 +39,7 @@ export const usuario = pgTable("USUARIO", {
 	ubicacion: text("ubicacion"),
 	codigoDeporte: text("codigo_deporte").references(() => deporte.nombre),
 	rol: text("rol").notNull().default("usuario"),
+	suspendido: boolean("suspendido").notNull().default(false),
 });
 
 export const entrenamiento = pgTable("ENTRENAMIENTO", {

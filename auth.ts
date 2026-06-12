@@ -45,12 +45,31 @@ export function getAuth() {
 		},
 		databaseHooks: {
 			user: {
-		create: {
-				after: async (user: { email: string; name?: string }) => {
+				create: {
+					after: async (user: { email: string; name?: string }) => {
 						await pool.query(
 							`INSERT INTO "USUARIO" (email, nombre, rol) VALUES ($1, $2, 'usuario') ON CONFLICT (email) DO NOTHING`,
 							[user.email, user.name ?? user.email]
 						);
+					},
+				},
+			},
+			session: {
+				create: {
+					before: async (session) => {
+						const userResult = await pool.query(
+							`SELECT email FROM "user" WHERE id = $1`,
+							[session.userId]
+						);
+						if (userResult.rows.length === 0) return;
+						const email = userResult.rows[0].email;
+						const result = await pool.query(
+							`SELECT suspendido FROM "USUARIO" WHERE email = $1`,
+							[email]
+						);
+						if (result.rows.length > 0 && result.rows[0].suspendido) {
+							return false;
+						}
 					},
 				},
 			},

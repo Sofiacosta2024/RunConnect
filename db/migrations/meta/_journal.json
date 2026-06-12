@@ -22,6 +22,13 @@
       "when": 1747160000000,
       "tag": "0002_add_rol_to_usuario",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1747170000000,
+      "tag": "0003_add_suspendido_to_usuario",
+      "breakpoints": true
     }
   ]
 }
