@@ -674,6 +674,7 @@ export async function getMisEntrenamientos(
     ritmoObjetivo: entrenamiento.ritmoObjetivo,
     nivel: entrenamiento.nivel,
     cupoMaximo: entrenamiento.cupoMaximo,
+    esParticipante: sql<boolean>`false`,
   })
   .from(usuarioEntrenamiento)
   .innerJoin(
@@ -697,6 +698,7 @@ export async function getMisEntrenamientos(
     )
   )
   .orderBy(
+    sql`CASE WHEN ${entrenamiento.estado} = 'finalizado' THEN 1 ELSE 0 END`,
     asc(entrenamiento.fechaInicio)
   );
 
@@ -714,6 +716,7 @@ export async function getMisEntrenamientos(
     ritmoObjetivo: entrenamiento.ritmoObjetivo,
     nivel: entrenamiento.nivel,
     cupoMaximo: entrenamiento.cupoMaximo,
+    esParticipante: sql<boolean>`true`,
   })
   .from(solicitud)
   .innerJoin(
@@ -747,6 +750,7 @@ export async function getMisEntrenamientos(
     )
   )
   .orderBy(
+    sql`CASE WHEN ${entrenamiento.estado} = 'finalizado' THEN 1 ELSE 0 END`,
     asc(entrenamiento.fechaInicio)
   );
 

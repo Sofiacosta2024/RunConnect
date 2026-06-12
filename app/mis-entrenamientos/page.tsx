@@ -31,7 +31,7 @@ return (
         </h1>
 
         <p className="entrenamientos-subtitle">
-          Entrenamientos en los que tu solicitud fue aprobada.
+          Entrenamientos en los que participás.
         </p>
       </div>
 
@@ -71,6 +71,7 @@ return (
               <EntrenamientoCard
                 key={`part-${e.codigoEntrenamiento}`}
                 entrenamiento={e}
+                esParticipante={true}
               />
             ))
           )}

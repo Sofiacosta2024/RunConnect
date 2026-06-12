@@ -8,6 +8,7 @@ type Props = {
   entrenamiento: EntrenamientoListItem;
   mostrarBotonSolicitud?: boolean;
   esOrganizador?: boolean;
+  esParticipante?: boolean;
 };
 
 const deporteEmoji: Record<string, string> = {
@@ -19,6 +20,20 @@ const nivelColor: Record<string, string> = {
   principiante: "#00C9A7",
   intermedio: "#FF7A00",
   avanzado: "#FF3C3C",
+};
+
+const estadoLabel: Record<string, string> = {
+  abierto: "Abierto",
+  cerrado: "Cerrado",
+  cancelado: "Cancelado",
+  finalizado: "Finalizado",
+};
+
+const estadoColor: Record<string, string> = {
+  abierto: "#00C9A7",
+  cerrado: "#FF7A00",
+  cancelado: "#FF3C3C",
+  finalizado: "#7B7B8F",
 };
 
 function formatDate(iso: string) {
@@ -40,7 +55,7 @@ function distanceLabel(km: number | null) {
   return `${km.toFixed(1)} km`;
 }
 
-export default function EntrenamientoCard({ entrenamiento, mostrarBotonSolicitud = false, esOrganizador = false }: Props) {
+export default function EntrenamientoCard({ entrenamiento, mostrarBotonSolicitud = false, esOrganizador = false, esParticipante = false }: Props) {
 const [loading, setLoading] = useState(false);
 const [enviada, setEnviada] = useState(false);
 const [finalizando, setFinalizando] = useState(false);
@@ -95,8 +110,47 @@ async function handleFinalizar() {
   }
 }
 
+  const puedeCalificar = esOrganizador || esParticipante;
+  const esFinalizado = entrenamiento.estado === "finalizado";
+
   return (
-    <div className="rc-card entrenamiento-card">
+    <div
+      className="rc-card entrenamiento-card"
+      style={{
+        opacity: esFinalizado && !puedeCalificar ? 0.5 : 1,
+        filter: esFinalizado && !puedeCalificar ? "grayscale(0.6)" : "none",
+      }}
+    >
+      {/* Estado badge arriba */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.8px",
+            padding: "4px 12px",
+            borderRadius: 100,
+            background: `${estadoColor[entrenamiento.estado] ?? "#7B7B8F"}18`,
+            color: estadoColor[entrenamiento.estado] ?? "#7B7B8F",
+            border: `1px solid ${estadoColor[entrenamiento.estado] ?? "#7B7B8F"}30`,
+          }}
+        >
+          {esFinalizado ? "✅" : entrenamiento.estado === "abierto" ? "🟢" : entrenamiento.estado === "cerrado" ? "🔒" : "⛔"}
+          {" "}{estadoLabel[entrenamiento.estado] ?? entrenamiento.estado}
+        </span>
+      </div>
+
       <div className="rc-user-row">
         <div
           className="rc-avatar"
@@ -142,20 +196,19 @@ async function handleFinalizar() {
               : "Sin límite"
           }
         />
-        <EntrenamientoStat
-          label="Estado"
-          value={entrenamiento.estado}
-        />
       </div>
-      {entrenamiento.estado === "finalizado" ? (
-        <div className="entrenamiento-actions">
-          <button
-            className="rc-btn-primary"
-            onClick={() => router.push(`/rating/${entrenamiento.codigoEntrenamiento}`)}
-          >
-            ⭐ Calificar
-          </button>
-        </div>
+
+      {esFinalizado ? (
+        puedeCalificar ? (
+          <div className="entrenamiento-actions">
+            <button
+              className="rc-btn-primary"
+              onClick={() => router.push(`/rating/${entrenamiento.codigoEntrenamiento}`)}
+            >
+              ⭐ Calificar
+            </button>
+          </div>
+        ) : null
       ) : mostrarBotonSolicitud && !esOrganizador ? (
         <div className="entrenamiento-actions">
           <button

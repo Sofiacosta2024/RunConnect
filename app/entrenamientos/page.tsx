@@ -219,7 +219,7 @@ export default function EntrenamientosPage() {
           {!loading &&
             !error &&
             entrenamientos.map((e) => (
-              <EntrenamientoCard key={e.codigoEntrenamiento} entrenamiento={e} mostrarBotonSolicitud = { emailUsuario !== "" && emailUsuario !== e.emailOrganizador && !e.esParticipante } esOrganizador={emailUsuario === e.emailOrganizador && e.estado === "abierto"} />
+              <EntrenamientoCard key={e.codigoEntrenamiento} entrenamiento={e} mostrarBotonSolicitud = { emailUsuario !== "" && emailUsuario !== e.emailOrganizador && !e.esParticipante } esOrganizador={emailUsuario === e.emailOrganizador} esParticipante={e.esParticipante} />
             ))}
         </div>
       </div>
