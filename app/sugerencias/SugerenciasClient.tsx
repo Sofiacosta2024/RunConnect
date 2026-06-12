@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getSugerencias } from "./actions";
-import TarjetaEntrenamiento from "./TarjetaEntrenamiento";
 import type { EntrenamientoSugerido } from "./actions";
 import Navbar from "../components/Navbar";
-
+import EntrenamientoCard from "../components/Entrenamientos/EntrenamientoCard";
+import type { EntrenamientoListItem } from "@/services/entrenamientoService";
 
 const NIVELES = ["principiante", "intermedio", "avanzado"];
 const DISTANCIA_KM = 10;
@@ -167,17 +167,68 @@ export default function SugerenciasClient({
             )}
 
             {/* Lista */}
-            {!isPending && sugerencias.length > 0 && (
-              <div className="rc-list">
-                {sugerencias.map((e) => (
-                  <TarjetaEntrenamiento
+            <div className="rc-list">
+              {sugerencias.map((e) => {
+                const item: EntrenamientoListItem = {
+                  codigoEntrenamiento: e.codigoEntrenamiento,
+                  emailOrganizador: "",
+                  codigoDeporte: e.codigoDeporte,
+                  descripcionDeporte: e.codigoDeporte,
+                  fechaInicio: e.fechaInicio.toISOString(),
+                  fechaFin: e.fechaFin.toISOString(),
+                  estado: "abierto",
+                  puntoEncuentro: null,
+                  distanciaEstimada:
+                    e.distanciaEstimada != null
+                      ? Number(e.distanciaEstimada)
+                      : null,
+                  ritmoObjetivo: e.ritmoObjetivo,
+                  nivel: e.nivel,
+                  cupoMaximo: e.cupoMaximo,
+                };
+
+                return (
+                  <div
                     key={e.codigoEntrenamiento}
-                    entrenamiento={e}
-                    onVerDetalleAction={(id) => router.push(`/entrenamiento/${id}`)}
-                  />
-                ))}
-              </div>
-            )}
+                    className="flex flex-col gap-1"
+                  >
+                    {/* Badge */}
+                    <div className="flex items-center gap-1.5 px-1">
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "var(--rc-muted)",
+                        }}
+                      >
+                        📍
+                      </span>
+
+                      <span
+                        className="text-xs"
+                        style={{ color: "var(--rc-muted)" }}
+                      >
+                        A{" "}
+                        <span
+                          className="font-semibold"
+                          style={{ color: "var(--rc-accent)" }}
+                        >
+                          {e.distanciaKm} km
+                        </span>{" "}
+                        de vos · Organiza{" "}
+                        <span className="font-medium">
+                          {e.organizadorNombre}
+                        </span>
+                      </span>
+                    </div>
+
+                    <EntrenamientoCard
+                      entrenamiento={item}
+                      mostrarBotonSolicitud
+                    />
+                  </div>
+                );
+              })}
+            </div>
 
             {/* Estado vacío */}
             {!isPending && sugerencias.length === 0 && !error && (
