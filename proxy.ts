@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getServerSession } from "@/lib/auth-server";
 
-const publicPaths = new Set(["/login", "/registro"]);
+const publicPaths = new Set(["/login", "/registro", "/api/auth"]);
 const publicPrefixes = ["/api/auth", "/api/logout", "/_next", "/favicon.ico"];
 
 function isPublicPath(pathname: string) {
