@@ -26,13 +26,20 @@ export type FiltrosSugerencias = {
   distanciaMaxKm: number;
 };
 
+function parseCoordenadas(ubicacion: string): { lat: number; lng: number } | null {
+  // Formato: "lat,lng|texto" o "lat,lng"
+  const raw = ubicacion.includes("|") ? ubicacion.split("|")[0] : ubicacion;
+  const [lat, lng] = raw.split(",").map(Number);
+  if (isNaN(lat) || isNaN(lng)) return null;
+  return { lat, lng };
+}
+
 export async function getSugerencias(
   filtros: FiltrosSugerencias
 ): Promise<EntrenamientoSugerido[]> {
   const session = await getServerSession(await headers());
   if (!session) throw new Error("No autenticado");
 
-  // Traer perfil del usuario (deporte preferido + ubicación)
   const [perfil] = await db
     .select({
       codigoDeporte: usuario.codigoDeporte,
@@ -45,11 +52,11 @@ export async function getSugerencias(
   if (!perfil?.ubicacion) throw new Error("Configurá tu ubicación en tu perfil para recibir sugerencias.");
   if (!perfil?.codigoDeporte) throw new Error("Configurá tu deporte preferido en tu perfil para recibir sugerencias.");
 
-  // Parsear ubicación "lat,lng"
-  const [lat, lng] = perfil.ubicacion.split(",").map(Number);
-  if (isNaN(lat) || isNaN(lng)) throw new Error("Tu ubicación guardada no es válida.");
+  const coordenadas = parseCoordenadas(perfil.ubicacion);
+  if (!coordenadas) throw new Error("Tu ubicación guardada no es válida. Actualizala desde tu perfil.");
 
-  // Entrenamientos donde ya participa el usuario
+  const { lat, lng } = coordenadas;
+
   const yaParticipa = await db
     .select({ codigo: usuarioEntrenamiento.codigoEntrenamiento })
     .from(usuarioEntrenamiento)
@@ -57,9 +64,7 @@ export async function getSugerencias(
 
   const codigosExcluidos = yaParticipa.map((r) => r.codigo);
 
-  // Query principal con distancia calculada via PostGIS
   const distanciaMaxMetros = filtros.distanciaMaxKm * 1000;
-
   const punto = sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography`;
 
   const rows = await db
@@ -92,7 +97,6 @@ export async function getSugerencias(
 
   if (rows.length === 0) return [];
 
-  // Enriquecer con organizador y cantidad de participantes
   const codigos = rows.map((r) => r.codigoEntrenamiento);
 
   const participantes = await db
@@ -106,8 +110,8 @@ export async function getSugerencias(
     .from(usuarioEntrenamiento)
     .innerJoin(usuario, eq(usuarioEntrenamiento.email, usuario.email))
     .where(
-      sql`${usuarioEntrenamiento.codigoEntrenamiento} = ANY(ARRAY[${sql.join(codigos.map((c) => sql`${c}`), sql`, `)}])`
-    );
+        sql`${usuarioEntrenamiento.codigoEntrenamiento} = ANY(ARRAY[${sql.join(codigos.map((c) => sql`${c}::integer`), sql`, `)}])`    
+      );
 
   return rows.map((r) => {
     const miembros = participantes.filter(

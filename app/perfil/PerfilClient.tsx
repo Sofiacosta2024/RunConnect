@@ -43,7 +43,7 @@ export default function PerfilClient({ perfil }: Props) {
 
   const [editando, setEditando] = useState(!perfil.codigoDeporte || !perfil.ubicacion);
   const [deporte, setDeporte] = useState(perfil.codigoDeporte ?? "");
-  const [ubicacion, setUbicacion] = useState(perfil.ubicacion ?? "");
+  const [ubicacion, setUbicacion] = useState(perfil.ubicacionDisplay ?? "");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState(false);
@@ -68,7 +68,7 @@ export default function PerfilClient({ perfil }: Props) {
 
   return (
     <div className="rc-root min-h-screen">
-    <Navbar />
+      <Navbar />
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "2rem 1rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
         {/* Hero del perfil */}
@@ -84,16 +84,15 @@ export default function PerfilClient({ perfil }: Props) {
             <p style={{ fontSize: "0.85rem", color: "var(--rc-muted)", margin: "0.2rem 0 0" }}>{perfil.email}</p>
           </div>
 
-          {/* Tags */}
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
             {perfil.codigoDeporte && (
               <span style={{ fontSize: "0.75rem", padding: "4px 12px", borderRadius: 999, background: "var(--rc-surface)", border: "1px solid var(--rc-border)", display: "flex", alignItems: "center", gap: "0.3rem", textTransform: "capitalize" }}>
                 {icono} {perfil.codigoDeporte}
               </span>
             )}
-            {perfil.ubicacion && (
+            {perfil.ubicacionDisplay && (
               <span style={{ fontSize: "0.75rem", padding: "4px 12px", borderRadius: 999, background: "var(--rc-surface)", border: "1px solid var(--rc-border)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                📍 {perfil.ubicacion}
+                📍 {perfil.ubicacionDisplay}
               </span>
             )}
             {!perfil.codigoDeporte && !perfil.ubicacion && (
@@ -179,7 +178,7 @@ export default function PerfilClient({ perfil }: Props) {
                     style={{ padding: "0.65rem 1rem", borderRadius: 8, fontSize: "0.85rem" }}
                     onClick={() => {
                       setDeporte(perfil.codigoDeporte ?? "");
-                      setUbicacion(perfil.ubicacion ?? "");
+                      setUbicacion(perfil.ubicacionDisplay ?? "");
                       setError(null);
                       setEditando(false);
                     }}
@@ -198,10 +197,10 @@ export default function PerfilClient({ perfil }: Props) {
               </p>
               <p style={{ margin: 0 }}>
                 <span style={{ color: "var(--rc-muted)" }}>Ubicación: </span>
-                📍 {perfil.ubicacion}
+                📍 {perfil.ubicacionDisplay}
               </p>
               {exito && (
-                <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "var(--rc-accent)" }}>
+                <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "green" }}>
                   ✓ Perfil actualizado
                 </p>
               )}
