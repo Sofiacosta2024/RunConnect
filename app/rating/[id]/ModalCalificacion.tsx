@@ -85,26 +85,36 @@ export default function ModalCalificacion({
           </button>
         </div>
 
-        {/* Puntaje */}
-        <div className="flex flex-col gap-2 items-center">
-          <div className="flex gap-1">
+      {/* Puntaje */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", gap: 4 }}>
               {[1,2,3,4,5].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setPuntaje(n)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "2rem",
+                    color: n <= puntaje ? "var(--rc-accent, #f97316)" : "var(--rc-border, #374151)",
+                    transition: "color 0.15s, transform 0.1s",
+                    transform: n <= puntaje ? "scale(1.15)" : "scale(1)",
+                    padding: 0,
+                    lineHeight: 1,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--rc-accent, #f97316)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = n <= puntaje ? "var(--rc-accent, #f97316)" : "var(--rc-border, #374151)")}
                 >
                   ★
                 </button>
               ))}
             </div>
-          <span
-            className="text-sm font-medium h-5"
-            style={{ color: "var(--rc-accent, #f59e0b)" }}
-          >
-            {puntaje > 0 ? ETIQUETAS[puntaje] : ""}
-          </span>
-        </div>
+            <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--rc-accent, #f97316)", minHeight: 20 }}>
+              {puntaje > 0 ? ETIQUETAS[puntaje] : "Seleccioná un puntaje"}
+            </span>
+          </div>
 
         {/* Comentario */}
         <div className="flex flex-col gap-1">
