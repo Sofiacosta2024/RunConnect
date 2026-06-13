@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type Props = {
   pagina: number;
@@ -13,6 +14,15 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [esMobile, setEsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    setEsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setEsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   if (totalPaginas <= 1) return null;
 
@@ -27,9 +37,8 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
     }
   }
 
-  function rango(): (number | "...")[] {
+  function rango(mostrar: number): (number | "...")[] {
     const paginas: (number | "...")[] = [];
-    const mostrar = 5;
     const mitad = Math.floor(mostrar / 2);
     let inicio = Math.max(1, pagina - mitad);
     let fin = Math.min(totalPaginas, inicio + mostrar - 1);
@@ -48,27 +57,39 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
     return paginas;
   }
 
+  const mobileBtnStyle = esMobile ? { padding: "8px 10px", fontSize: 12 } : { padding: "8px 14px", fontSize: 13 };
+
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "24px 0" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: esMobile ? 4 : 6,
+        padding: "24px 0",
+        overflowX: "auto",
+        flexWrap: "nowrap",
+      }}
+    >
       <button
         onClick={() => irA(pagina - 1)}
         disabled={pagina <= 1}
         style={{
-          padding: "8px 14px",
+          ...mobileBtnStyle,
           borderRadius: 8,
           border: "1px solid var(--rc-border)",
           background: pagina <= 1 ? "transparent" : "var(--rc-card)",
           color: pagina <= 1 ? "var(--rc-muted)" : "var(--rc-text)",
           cursor: pagina <= 1 ? "not-allowed" : "pointer",
-          fontSize: 13,
           fontWeight: 600,
           fontFamily: "'DM Sans', sans-serif",
+          whiteSpace: "nowrap",
         }}
       >
-        ← Anterior
+        {esMobile ? "←" : "← Anterior"}
       </button>
 
-      {rango().map((p, i) =>
+      {rango(esMobile ? 3 : 5).map((p, i) =>
         p === "..." ? (
           <span key={`dots-${i}`} style={{ color: "var(--rc-muted)", fontSize: 13, padding: "0 4px" }}>
             ...
@@ -78,16 +99,17 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
             key={p}
             onClick={() => irA(p)}
             style={{
-              width: 36,
-              height: 36,
+              width: esMobile ? 32 : 36,
+              height: esMobile ? 32 : 36,
               borderRadius: 8,
               border: p === pagina ? "none" : "1px solid var(--rc-border)",
               background: p === pagina ? "var(--rc-grad)" : "var(--rc-card)",
               color: p === pagina ? "#fff" : "var(--rc-text)",
               cursor: "pointer",
-              fontSize: 14,
+              fontSize: esMobile ? 12 : 14,
               fontWeight: p === pagina ? 700 : 500,
               fontFamily: "'DM Sans', sans-serif",
+              flexShrink: 0,
             }}
           >
             {p}
@@ -99,18 +121,18 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
         onClick={() => irA(pagina + 1)}
         disabled={pagina >= totalPaginas}
         style={{
-          padding: "8px 14px",
+          ...mobileBtnStyle,
           borderRadius: 8,
           border: "1px solid var(--rc-border)",
           background: pagina >= totalPaginas ? "transparent" : "var(--rc-card)",
           color: pagina >= totalPaginas ? "var(--rc-muted)" : "var(--rc-text)",
           cursor: pagina >= totalPaginas ? "not-allowed" : "pointer",
-          fontSize: 13,
           fontWeight: 600,
           fontFamily: "'DM Sans', sans-serif",
+          whiteSpace: "nowrap",
         }}
       >
-        Siguiente →
+        {esMobile ? "→" : "Siguiente →"}
       </button>
     </div>
   );
