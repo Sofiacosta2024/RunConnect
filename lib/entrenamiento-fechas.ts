@@ -33,11 +33,20 @@ function normalizeIsoDateTime(value: string) {
   return hasTimezone ? withT : `${withT}Z`;
 }
 
+const YEAR_REGEX = /^\d{4}-/;
+
 function parseUtcDateTime(value: string, fieldName: string): ParsedDateResult {
   const trimmed = value.trim();
 
   if (!trimmed) {
     return { ok: false, error: `${fieldName} es obligatoria.` };
+  }
+
+  if (!YEAR_REGEX.test(trimmed)) {
+    return {
+      ok: false,
+      error: `${fieldName} debe tener un año de 4 dígitos.`,
+    };
   }
 
   const parsed = new Date(normalizeIsoDateTime(trimmed));

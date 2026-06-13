@@ -206,8 +206,8 @@ function validateInput(input: EntrenamientoInput) {
   const estado = resolveEstado(input.estado);
 
   if (input.cupoMaximo !== undefined && input.cupoMaximo !== null) {
-    if (!Number.isInteger(input.cupoMaximo) || input.cupoMaximo <= 0) {
-      throw new EntrenamientoValidationError("cupoMaximo debe ser un entero positivo.");
+    if (!Number.isInteger(input.cupoMaximo) || input.cupoMaximo <= 1) {
+      throw new EntrenamientoValidationError("cupoMaximo debe ser un entero mayor a 1.");
     }
   }
 
@@ -219,6 +219,14 @@ function validateInput(input: EntrenamientoInput) {
     ) {
       throw new EntrenamientoValidationError(
         "distanciaEstimada debe ser un numero positivo."
+      );
+    }
+  }
+
+  if (input.ritmoObjetivo !== undefined && input.ritmoObjetivo !== null && input.ritmoObjetivo !== "") {
+    if (/-\d/.test(input.ritmoObjetivo)) {
+      throw new EntrenamientoValidationError(
+        "ritmoObjetivo no debe contener valores negativos."
       );
     }
   }

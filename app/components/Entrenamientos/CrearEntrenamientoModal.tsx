@@ -85,6 +85,32 @@ export default function CrearEntrenamientoModal({
       return;
     }
 
+    const yearMatch = fecha.match(/^(\d{4})-/);
+    if (!yearMatch) {
+      setError("La fecha debe tener un año de 4 dígitos.");
+      return;
+    }
+
+    if (distancia && Number(distancia) <= 0) {
+      setError("La distancia debe ser mayor a 0.");
+      return;
+    }
+
+    if (ritmo && /-\d/.test(ritmo)) {
+      setError("El ritmo objetivo no debe contener valores negativos.");
+      return;
+    }
+
+    if (cupo && Number(cupo) < 2) {
+      setError("El cupo máximo debe ser al menos 2.");
+      return;
+    }
+
+    if (cupo && Number(cupo) > 2147483647) {
+      setError("El cupo máximo es demasiado grande.");
+      return;
+    }
+
     if (!ubicacion) {
       setError("Indicá el punto de encuentro.");
       return;
@@ -257,7 +283,7 @@ export default function CrearEntrenamientoModal({
               <input
                 className="rc-field-input"
                 type="number"
-                min="0"
+                min="0.1"
                 step="0.1"
                 placeholder="Opcional"
                 value={distancia}
@@ -283,7 +309,8 @@ export default function CrearEntrenamientoModal({
               <input
                 className="rc-field-input"
                 type="number"
-                min="1"
+                min="2"
+                max="2147483647"
                 placeholder="Opcional"
                 value={cupo}
                 onChange={(e) => setCupo(e.target.value)}
