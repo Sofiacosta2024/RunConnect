@@ -69,3 +69,8 @@ export async function getMisEntrenamientos(
     const service = await getService();
     return service.getMisEntrenamientos(email);
 }
+
+export async function finalizarVencidos() {
+    const service = await getService();
+    return service.finalizarVencidos();
+}

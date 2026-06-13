@@ -551,6 +551,20 @@ export async function finalizar(codigoEntrenamiento: number, emailOrganizador: s
   }
 }
 
+export async function finalizarVencidos(): Promise<number> {
+  try {
+    const result = db
+      .prepare(
+        `UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE fecha_fin < datetime('now') AND estado = 'abierto'`
+      )
+      .run();
+
+    return result.changes ?? 0;
+  } catch (error) {
+    throwDatabaseUnavailable(error, "finalizarVencidos");
+  }
+}
+
 export async function remove(codigoEntrenamiento: number) {
   if (!isFinitePositiveInteger(codigoEntrenamiento)) {
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");
@@ -691,8 +705,67 @@ export async function getMisEntrenamientos(
   organizados: EntrenamientoListItem[];
   participando: EntrenamientoListItem[];
 }> {
-  return {
-    organizados: [],
-    participando: [],
-  };
+  try {
+    const organizadosRows = db
+      .prepare(
+        `
+        SELECT
+          e.codigo_entrenamiento AS codigoEntrenamiento,
+          ue.email AS emailOrganizador,
+          e.codigo_deporte AS codigoDeporte,
+          d.descripcion_deporte AS descripcionDeporte,
+          e.fecha_inicio AS fechaInicio,
+          e.fecha_fin AS fechaFin,
+          e.estado AS estado,
+          e.punto_de_encuentro AS puntoEncuentro,
+          e.distancia_estimada AS distanciaEstimada,
+          e.ritmo_objetivo AS ritmoObjetivo,
+          e.nivel AS nivel,
+          e.cupo_maximo AS cupoMaximo,
+          0 AS esParticipante
+        FROM "USUARIO_ENTRENAMIENTO" ue
+        INNER JOIN "ENTRENAMIENTO" e ON e.codigo_entrenamiento = ue.codigo_entrenamiento
+        INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+        WHERE ue.email = ? AND ue.rol = ?
+        ORDER BY CASE WHEN e.estado = 'finalizado' THEN 1 ELSE 0 END, e.fecha_inicio ASC
+      `
+      )
+      .all(email, "organizador") as EntrenamientoRow[];
+
+    const participandoRows = db
+      .prepare(
+        `
+        SELECT
+          e.codigo_entrenamiento AS codigoEntrenamiento,
+          org.email AS emailOrganizador,
+          e.codigo_deporte AS codigoDeporte,
+          d.descripcion_deporte AS descripcionDeporte,
+          e.fecha_inicio AS fechaInicio,
+          e.fecha_fin AS fechaFin,
+          e.estado AS estado,
+          e.punto_de_encuentro AS puntoEncuentro,
+          e.distancia_estimada AS distanciaEstimada,
+          e.ritmo_objetivo AS ritmoObjetivo,
+          e.nivel AS nivel,
+          e.cupo_maximo AS cupoMaximo,
+          1 AS esParticipante
+        FROM "SOLICITUD" s
+        INNER JOIN "ENTRENAMIENTO" e ON e.codigo_entrenamiento = s.codigo_entrenamiento
+        INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+        INNER JOIN "USUARIO_ENTRENAMIENTO" org
+          ON org.codigo_entrenamiento = e.codigo_entrenamiento
+         AND org.rol = ?
+        WHERE s.email = ? AND s.estado = ?
+        ORDER BY CASE WHEN e.estado = 'finalizado' THEN 1 ELSE 0 END, e.fecha_inicio ASC
+      `
+      )
+      .all("organizador", email, "aprobado") as EntrenamientoRow[];
+
+    return {
+      organizados: organizadosRows.map((row) => mapEntrenamiento(row)),
+      participando: participandoRows.map((row) => mapEntrenamiento(row)),
+    };
+  } catch (error) {
+    throwDatabaseUnavailable(error, "getMisEntrenamientos");
+  }
 }
