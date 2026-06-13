@@ -14,17 +14,13 @@ function isPublicPath(pathname: string) {
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (isPublicPath(pathname)) {
-    return NextResponse.next();
-  }
-
-  if (process.env.DB_MODE === "sqlite" && pathname.startsWith("/api/")) {
-    return NextResponse.next();
-  }
-
-  const session = await getServerSession(request.headers);
+    const session = await getServerSession(request.headers);
 
   if (session) {
+    return NextResponse.next();
+  }
+
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 

@@ -637,6 +637,18 @@ export async function finalizar(codigoEntrenamiento: number, emailOrganizador: s
   }
 }
 
+export async function finalizarVencidos(): Promise<number> {
+  try {
+    const result = await db.execute(
+      sql`UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE fecha_fin < NOW() AND estado = 'abierto'`
+    );
+
+    return result.rowCount ?? 0;
+  } catch (error) {
+    throwDatabaseUnavailable(error, "finalizarVencidos");
+  }
+}
+
 export async function remove(codigoEntrenamiento: number) {
   if (!isFinitePositiveInteger(codigoEntrenamiento)) {
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");

@@ -1,11 +1,8 @@
 import { betterAuth } from "better-auth";
-import { Pool } from "pg";
 import fs from "fs";
 import path from "path";
 
-const pool = new Pool({
-	connectionString: process.env.DATABASE_URL,
-});
+import { pool } from "@/lib/db"; 
 
 let _auth: any | undefined;
 
@@ -42,7 +39,7 @@ export function getAuth() {
 				clientId: process.env.GOOGLE_CLIENT_ID ?? "",
 				clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 			},
-		},
+		}, 
 		databaseHooks: {
 			user: {
 				create: {
@@ -53,7 +50,7 @@ export function getAuth() {
 						);
 					},
 				},
-			},
+			}, 
 			session: {
 				create: {
 					before: async (session) => {
@@ -76,7 +73,7 @@ export function getAuth() {
 		},
 	});
 
-	_auth.$context.then((ctx: any) => ctx.runMigrations()).catch(console.error);
+	// _auth.$context.then((ctx: any) => ctx.runMigrations()).catch(console.error);
 
 	return _auth;
 }
