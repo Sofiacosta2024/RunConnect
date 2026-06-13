@@ -39,7 +39,7 @@ export function getAuth() {
 				clientId: process.env.GOOGLE_CLIENT_ID ?? "",
 				clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 			},
-		}, /*
+		}, 
 		databaseHooks: {
 			user: {
 				create: {
@@ -50,7 +50,7 @@ export function getAuth() {
 						);
 					},
 				},
-			},
+			}, /*
 			session: {
 				create: {
 					before: async (session) => {
@@ -69,8 +69,8 @@ export function getAuth() {
 						}
 					},
 				},
-			},
-		},*/
+			},*/
+		},
 	});
 
 	// _auth.$context.then((ctx: any) => ctx.runMigrations()).catch(console.error);
