@@ -10,6 +10,7 @@ import { getSolicitudesPendientesDelOrganizador, getMisSolicitudes } from "@/ser
 import { db } from "@/lib/db";
 import { entrenamiento, usuarioEntrenamiento } from "@/db/schema";
 import { inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -63,28 +64,39 @@ const totalPaginasMis = (misResult as any).totalPaginas ?? 1;
 
   const codigosEntrenamiento: number[] = [...new Set(solicitudes.map((s) => s.codigoEntrenamiento))];
 
-  const [entrenamientos, participantes] = codigosEntrenamiento.length > 0
-    ? await Promise.all([
-        db
-          .select({ codigoEntrenamiento: entrenamiento.codigoEntrenamiento, cupoMaximo: entrenamiento.cupoMaximo })
-          .from(entrenamiento)
-          .where(inArray(entrenamiento.codigoEntrenamiento, codigosEntrenamiento)),
-        db
-          .select({ codigoEntrenamiento: usuarioEntrenamiento.codigoEntrenamiento })
-          .from(usuarioEntrenamiento)
-          .where(inArray(usuarioEntrenamiento.codigoEntrenamiento, codigosEntrenamiento)),
-      ])
-    : [[], []];
 
-  const cupoMap = Object.fromEntries(
-    entrenamientos.map((e) => [
-      e.codigoEntrenamiento,
-      {
-        cupoMaximo: e.cupoMaximo,
-        cupoOcupado: participantes.filter((p) => p.codigoEntrenamiento === e.codigoEntrenamiento).length,
-      },
+const [entrenamientos, participantes] = codigosEntrenamiento.length > 0
+  ? await Promise.all([
+      db
+        .select({ codigoEntrenamiento: entrenamiento.codigoEntrenamiento, cupoMaximo: entrenamiento.cupoMaximo })
+        .from(entrenamiento)
+        .where(inArray(entrenamiento.codigoEntrenamiento, codigosEntrenamiento)),
+
+      db
+        .select({ codigoEntrenamiento: usuarioEntrenamiento.codigoEntrenamiento })
+        .from(usuarioEntrenamiento)
+        .where(
+          and(
+            inArray(usuarioEntrenamiento.codigoEntrenamiento, codigosEntrenamiento),
+            eq(usuarioEntrenamiento.rol, "participante")
+          )
+        ),
     ])
-  );
+  : [[], []];
+  // logs
+console.log("Datos de entrenamiento:", entrenamientos);
+console.log("Participantes encontrados en BD:", participantes);
+
+const cupoMap = Object.fromEntries(
+  entrenamientos.map((e) => {
+    const ocupados = participantes.filter((p) => p.codigoEntrenamiento === e.codigoEntrenamiento).length;
+    console.log(`Entrenamiento ${e.codigoEntrenamiento}: Máximo ${e.cupoMaximo}, Ocupados ${ocupados}`);
+    return [
+      e.codigoEntrenamiento,
+      { cupoMaximo: e.cupoMaximo, cupoOcupado: ocupados }
+    ];
+  })
+);
 
   return (
     <div className="rc-root">
