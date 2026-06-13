@@ -103,15 +103,19 @@ if (entrenamientoInfo[0].emailOrganizador === email) {
 }
 
 // Contar participantes aceptados
-const participantes = await tx
-  .select({ total: count() })
+const participantes = await db
+  .select()
   .from(usuarioEntrenamiento)
   .where(
     and(
-      eq(usuarioEntrenamiento.codigoEntrenamiento, sol.codigoEntrenamiento),
-      eq(usuarioEntrenamiento.rol, "participante") // Solo contar participantes, no organizadores
+      eq(
+        usuarioEntrenamiento.codigoEntrenamiento,
+        codigoEntrenamiento
+      ),
+      eq(usuarioEntrenamiento.rol, "participante")
     )
   );
+
   // Si el cupo está lleno, no permitir la solicitud
   if ( ent.cupoMaximo !== null && participantes.length >= ent.cupoMaximo) {
           throw new Error( "El entrenamiento ya no tiene cupos disponibles.");
