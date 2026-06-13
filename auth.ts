@@ -50,7 +50,7 @@ export function getAuth() {
 						);
 					},
 				},
-			}, /*
+			}, 
 			session: {
 				create: {
 					before: async (session) => {
@@ -69,7 +69,7 @@ export function getAuth() {
 						}
 					},
 				},
-			},*/
+			},
 		},
 	});
 
