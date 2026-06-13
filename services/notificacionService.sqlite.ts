@@ -19,7 +19,7 @@ export async function crearNotificacion(
   throw new Error("Not implemented for SQLite");
 }
 
-export async function getNotificaciones(_email: string): Promise<NotificacionRow[]> {
+export async function getNotificaciones(_email: string, _pagina?: number, _limite?: number): Promise<{ data: NotificacionRow[]; total: number; pagina: number; totalPaginas: number }> {
   throw new Error("Not implemented for SQLite");
 }
 

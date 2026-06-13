@@ -12,16 +12,18 @@ async function getService(): Promise<EntrenamientoService> {
   return import("./entrenamientoService.pg");
 }
 
-export async function getAll() {
+export async function getAll(pagina?: number, limite?: number) {
   const service = await getService();
-  return service.getAll();
+  return service.getAll(pagina, limite);
 }
 
 export async function getFiltered(
-  params: import("./entrenamientoService.pg").GetFilteredParams
+  params: import("./entrenamientoService.pg").GetFilteredParams,
+  pagina?: number,
+  limite?: number
 ) {
   const service = await getService();
-  return service.getFiltered(params);
+  return service.getFiltered(params, pagina, limite);
 }
 
 export async function getById(codigoEntrenamiento: number) {
@@ -64,10 +66,12 @@ export async function crearEntrenamientoConChat(
 }
 
 export async function getMisEntrenamientos(
-    email: string
+    email: string,
+    pagina?: number,
+    limite?: number
 ) {
     const service = await getService();
-    return service.getMisEntrenamientos(email);
+    return service.getMisEntrenamientos(email, pagina, limite);
 }
 
 export async function finalizarVencidos() {

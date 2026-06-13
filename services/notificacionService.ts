@@ -21,9 +21,9 @@ export async function crearNotificacion(
   return service.crearNotificacion(email, tipo, mensaje, codigoEntrenamiento);
 }
 
-export async function getNotificaciones(email: string) {
+export async function getNotificaciones(email: string, pagina?: number, limite?: number) {
   const service = await getService();
-  return service.getNotificaciones(email);
+  return service.getNotificaciones(email, pagina, limite);
 }
 
 export async function getNotificacionesNoLeidas(email: string) {

@@ -3,14 +3,28 @@ import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { usuario } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { count, sql } from "drizzle-orm";
 import UsuarioActions from "./UsuarioActions";
+import Pagination from "@/app/components/Pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminUsuariosPage() {
+const LIMITE = 15;
+
+export default async function AdminUsuariosPage(props: { searchParams: Promise<{ pagina?: string }> }) {
   const session = await getAdminSession(await headers());
   if (!session) redirect("/login");
+
+  const { pagina: rawPagina } = await props.searchParams;
+  const pagina = Math.max(1, Number(rawPagina) || 1);
+  const offset = (pagina - 1) * LIMITE;
+
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(usuario);
+
+  const total = Number(countRow?.total ?? 0);
+  const totalPaginas = Math.ceil(total / LIMITE);
 
   const users = await db
     .select({
@@ -22,10 +36,12 @@ export default async function AdminUsuariosPage() {
       suspendido: usuario.suspendido,
     })
     .from(usuario)
-    .orderBy(sql`${usuario.nombre} ASC`);
+    .orderBy(sql`${usuario.nombre} ASC`)
+    .limit(LIMITE)
+    .offset(offset);
 
-  const activeUsers = users.filter((u) => !u.suspendido);
-  const suspendedUsers = users.filter((u) => u.suspendido);
+  const activeCount = users.filter((u) => !u.suspendido).length;
+  const suspendedCount = users.filter((u) => u.suspendido).length;
 
   return (
     <div>
@@ -35,7 +51,7 @@ export default async function AdminUsuariosPage() {
             Usuarios
           </h1>
           <p style={{ color: "var(--rc-muted)", fontSize: 15 }}>
-            {activeUsers.length} activos, {suspendedUsers.length} suspendidos.
+            Total: {total} usuarios.
           </p>
         </div>
       </div>
@@ -112,6 +128,8 @@ export default async function AdminUsuariosPage() {
           </div>
         )}
       </div>
+
+      <Pagination pagina={pagina} totalPaginas={totalPaginas} />
     </div>
   );
 }

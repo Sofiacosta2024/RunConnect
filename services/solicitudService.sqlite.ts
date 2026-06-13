@@ -30,7 +30,9 @@ export async function rechazarSolicitud(
 }
 
 export async function getSolicitudesPendientesDelOrganizador(
-  email: string
+  email: string,
+  pagina?: number,
+  limite?: number
 ): Promise<never> {
   throw new Error("No implementado para SQLite");
 }

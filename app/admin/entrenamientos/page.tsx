@@ -3,15 +3,37 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { entrenamiento, deporte, usuarioEntrenamiento } from "@/db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, count } from "drizzle-orm";
 import { getAdminSession } from "@/lib/admin-auth";
 import AdminEntrenamientoActions from "./AdminEntrenamientoActions";
+import Pagination from "@/app/components/Pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminEntrenamientosPage() {
+const LIMITE = 15;
+
+export default async function AdminEntrenamientosPage(props: { searchParams: Promise<{ pagina?: string }> }) {
   const session = await getAdminSession(await headers());
   if (!session) redirect("/login");
+
+  const { pagina: rawPagina } = await props.searchParams;
+  const pagina = Math.max(1, Number(rawPagina) || 1);
+  const offset = (pagina - 1) * LIMITE;
+
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(entrenamiento)
+    .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+    .innerJoin(
+      usuarioEntrenamiento,
+      and(
+        eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+        eq(usuarioEntrenamiento.rol, "organizador")
+      )
+    );
+
+  const total = Number(countRow?.total ?? 0);
+  const totalPaginas = Math.ceil(total / LIMITE);
 
   const rows = await db
     .select({
@@ -34,7 +56,9 @@ export default async function AdminEntrenamientosPage() {
         eq(usuarioEntrenamiento.rol, "organizador")
       )
     )
-    .orderBy(sql`${entrenamiento.codigoEntrenamiento} DESC`);
+    .orderBy(sql`${entrenamiento.codigoEntrenamiento} DESC`)
+    .limit(LIMITE)
+    .offset(offset);
 
   return (
     <div>
@@ -44,7 +68,7 @@ export default async function AdminEntrenamientosPage() {
             Entrenamientos
           </h1>
           <p style={{ color: "var(--rc-muted)", fontSize: 15 }}>
-            Total: {rows.length} entrenamientos.
+            Total: {total} entrenamientos.
           </p>
         </div>
       </div>
@@ -116,6 +140,8 @@ export default async function AdminEntrenamientosPage() {
           </div>
         )}
       </div>
+
+      <Pagination pagina={pagina} totalPaginas={totalPaginas} />
     </div>
   );
 }

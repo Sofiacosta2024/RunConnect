@@ -7,7 +7,7 @@ import {
 import { db } from "@/lib/db";
 import { entrenamiento, deporte, usuarioEntrenamiento, solicitud } from "@/db/schema";
 import { validarFechasEntrenamiento } from "@/lib/entrenamiento-fechas";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, count } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 export interface GetFilteredParams {
@@ -258,9 +258,25 @@ function throwDatabaseUnavailable(error: unknown, operation: string): never {
   );
 }
 
-export async function getAll() {
+export async function getAll(pagina?: number, limite: number = 10) {
   try {
-    const rows = await db
+    const offset = pagina ? (pagina - 1) * limite : undefined;
+
+    const countResult = await db
+      .select({ total: count() })
+      .from(entrenamiento)
+      .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      );
+
+    const total = Number(countResult[0]?.total ?? 0);
+
+    let query = db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
         emailOrganizador: usuarioEntrenamiento.email,
@@ -286,14 +302,31 @@ export async function getAll() {
       )
       .orderBy(desc(entrenamiento.fechaInicio), desc(entrenamiento.codigoEntrenamiento));
 
-    return rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow));
+    if (pagina !== undefined) {
+      const rows = await (query as any).limit(limite).offset(offset as number);
+      return {
+        data: rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow)),
+        total,
+        pagina,
+        totalPaginas: Math.ceil(total / limite),
+      };
+    }
+
+    const rows = await query;
+
+    return {
+      data: rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow)),
+      total,
+      pagina: 1,
+      totalPaginas: 1,
+    };
   } catch (error) {
     throwDatabaseUnavailable(error, "getAll");
   }
 }
 
 
-export async function getFiltered(params: GetFilteredParams = {}) {
+export async function getFiltered(params: GetFilteredParams = {}, pagina?: number, limite: number = 10) {
   try {
     const conditions: ReturnType<typeof sql>[] = [
       sql`${entrenamiento.fechaInicio} > NOW()`,
@@ -317,8 +350,25 @@ export async function getFiltered(params: GetFilteredParams = {}) {
     }
 
     const emailUsuario = params.emailUsuario ?? "";
+    const whereConditions = and(...conditions);
 
-    const rows = await db
+    const countResult = await db
+      .select({ total: count() })
+      .from(entrenamiento)
+      .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
+      .where(whereConditions);
+
+    const total = Number(countResult[0]?.total ?? 0);
+    const offset = pagina ? (pagina - 1) * limite : undefined;
+
+    let query = db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
         emailOrganizador: usuarioEntrenamiento.email,
@@ -347,10 +397,27 @@ export async function getFiltered(params: GetFilteredParams = {}) {
           eq(usuarioEntrenamiento.rol, rolOrganizador)
         )
       )
-      .where(and(...conditions))
+      .where(whereConditions)
       .orderBy(asc(entrenamiento.fechaInicio));
 
-    return rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow));
+    if (pagina !== undefined) {
+      const rows = await (query as any).limit(limite).offset(offset as number);
+      return {
+        data: rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow)),
+        total,
+        pagina,
+        totalPaginas: Math.ceil(total / limite),
+      };
+    }
+
+    const rows = await query;
+
+    return {
+      data: rows.map((r: unknown) => mapEntrenamiento(r as EntrenamientoRow)),
+      total,
+      pagina: 1,
+      totalPaginas: 1,
+    };
   } catch (error) {
     throwDatabaseUnavailable(error, "getFiltered");
   }
@@ -676,113 +743,136 @@ export async function remove(codigoEntrenamiento: number) {
 }
 
 export async function getMisEntrenamientos(
-  email: string
-): Promise<{ organizados: EntrenamientoListItem[];
-             participando: EntrenamientoListItem[]}> {
+  email: string,
+  pagina?: number,
+  limite: number = 10
+): Promise<{
+  organizados: EntrenamientoListItem[];
+  participando: EntrenamientoListItem[];
+  totalOrganizados: number;
+  totalParticipando: number;
+  pagina: number;
+  totalPaginas: number;
+}> {
   try {
-    const organizadosRows = await db
-  .select({
-    codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-    emailOrganizador: usuarioEntrenamiento.email,
-    codigoDeporte: entrenamiento.codigoDeporte,
-    descripcionDeporte: deporte.descripcionDeporte,
-    fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
-    fechaFin: sql`${entrenamiento.fechaFin}::text`,
-    estado: entrenamiento.estado,
-    puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
-    distanciaEstimada: entrenamiento.distanciaEstimada,
-    ritmoObjetivo: entrenamiento.ritmoObjetivo,
-    nivel: entrenamiento.nivel,
-    cupoMaximo: entrenamiento.cupoMaximo,
-    esParticipante: sql<boolean>`false`,
-  })
-  .from(usuarioEntrenamiento)
-  .innerJoin(
-    entrenamiento,
-    eq(
-      usuarioEntrenamiento.codigoEntrenamiento,
-      entrenamiento.codigoEntrenamiento
-    )
-  )
-  .innerJoin(
-    deporte,
-    eq(
-      deporte.nombre,
-      entrenamiento.codigoDeporte
-    )
-  )
-  .where(
-    and(
-      eq(usuarioEntrenamiento.email, email),
-      eq(usuarioEntrenamiento.rol, "organizador")
-    )
-  )
-  .orderBy(
-    sql`CASE WHEN ${entrenamiento.estado} = 'finalizado' THEN 1 ELSE 0 END`,
-    asc(entrenamiento.fechaInicio)
-  );
+    const offset = pagina !== undefined ? (pagina - 1) * limite : undefined;
 
-  const participandoRows = await db
-  .select({
-    codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
-    emailOrganizador: usuarioEntrenamiento.email,
-    codigoDeporte: entrenamiento.codigoDeporte,
-    descripcionDeporte: deporte.descripcionDeporte,
-    fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
-    fechaFin: sql`${entrenamiento.fechaFin}::text`,
-    estado: entrenamiento.estado,
-    puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
-    distanciaEstimada: entrenamiento.distanciaEstimada,
-    ritmoObjetivo: entrenamiento.ritmoObjetivo,
-    nivel: entrenamiento.nivel,
-    cupoMaximo: entrenamiento.cupoMaximo,
-    esParticipante: sql<boolean>`true`,
-  })
-  .from(solicitud)
-  .innerJoin(
-    entrenamiento,
-    eq(
-      solicitud.codigoEntrenamiento,
-      entrenamiento.codigoEntrenamiento
-    )
-  )
-  .innerJoin(
-    deporte,
-    eq(
-      deporte.nombre,
-      entrenamiento.codigoDeporte
-    )
-  )
-  .innerJoin(
-    usuarioEntrenamiento,
-    and(
-      eq(
-        usuarioEntrenamiento.codigoEntrenamiento,
-        entrenamiento.codigoEntrenamiento
-      ),
-      eq(usuarioEntrenamiento.rol, rolOrganizador)
-    )
-  )
-  .where(
-    and(
-      eq(solicitud.email, email),
-      eq(solicitud.estado, "aprobado")
-    )
-  )
-  .orderBy(
-    sql`CASE WHEN ${entrenamiento.estado} = 'finalizado' THEN 1 ELSE 0 END`,
-    asc(entrenamiento.fechaInicio)
-  );
+    const countOrganizados = await db
+      .select({ total: count() })
+      .from(usuarioEntrenamiento)
+      .innerJoin(
+        entrenamiento,
+        eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento)
+      )
+      .where(
+        and(
+          eq(usuarioEntrenamiento.email, email),
+          eq(usuarioEntrenamiento.rol, "organizador")
+        )
+      );
 
-  return {
-  organizados: organizadosRows.map((r) =>
-    mapEntrenamiento(r as EntrenamientoRow)
-  ),
+    const totalOrganizados = Number(countOrganizados[0]?.total ?? 0);
 
-  participando: participandoRows.map((r) =>
-    mapEntrenamiento(r as EntrenamientoRow)
-  ),
-    }; } catch (error) {
+    const countParticipando = await db
+      .select({ total: count() })
+      .from(solicitud)
+      .innerJoin(
+        entrenamiento,
+        eq(solicitud.codigoEntrenamiento, entrenamiento.codigoEntrenamiento)
+      )
+      .where(
+        and(
+          eq(solicitud.email, email),
+          eq(solicitud.estado, "aprobado")
+        )
+      );
+
+    const totalParticipando = Number(countParticipando[0]?.total ?? 0);
+    const totalGeneral = totalOrganizados + totalParticipando;
+
+    let organizadosQuery = db
+      .select({
+        codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+        emailOrganizador: usuarioEntrenamiento.email,
+        codigoDeporte: entrenamiento.codigoDeporte,
+        descripcionDeporte: deporte.descripcionDeporte,
+        fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
+        fechaFin: sql`${entrenamiento.fechaFin}::text`,
+        estado: entrenamiento.estado,
+        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+        distanciaEstimada: entrenamiento.distanciaEstimada,
+        ritmoObjetivo: entrenamiento.ritmoObjetivo,
+        nivel: entrenamiento.nivel,
+        cupoMaximo: entrenamiento.cupoMaximo,
+        esParticipante: sql<boolean>`false`,
+      })
+      .from(usuarioEntrenamiento)
+      .innerJoin(entrenamiento, eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento))
+      .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .where(
+        and(
+          eq(usuarioEntrenamiento.email, email),
+          eq(usuarioEntrenamiento.rol, "organizador")
+        )
+      )
+      .orderBy(
+        sql`CASE WHEN ${entrenamiento.estado} = 'finalizado' THEN 1 ELSE 0 END`,
+        asc(entrenamiento.fechaInicio)
+      );
+
+    let participandoQuery = db
+      .select({
+        codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+        emailOrganizador: usuarioEntrenamiento.email,
+        codigoDeporte: entrenamiento.codigoDeporte,
+        descripcionDeporte: deporte.descripcionDeporte,
+        fechaInicio: sql`${entrenamiento.fechaInicio}::text`,
+        fechaFin: sql`${entrenamiento.fechaFin}::text`,
+        estado: entrenamiento.estado,
+        puntoEncuentro: sql`ST_AsText(${entrenamiento.puntoEncuentro}::geometry)`,
+        distanciaEstimada: entrenamiento.distanciaEstimada,
+        ritmoObjetivo: entrenamiento.ritmoObjetivo,
+        nivel: entrenamiento.nivel,
+        cupoMaximo: entrenamiento.cupoMaximo,
+        esParticipante: sql<boolean>`true`,
+      })
+      .from(solicitud)
+      .innerJoin(entrenamiento, eq(solicitud.codigoEntrenamiento, entrenamiento.codigoEntrenamiento))
+      .innerJoin(deporte, eq(deporte.nombre, entrenamiento.codigoDeporte))
+      .innerJoin(
+        usuarioEntrenamiento,
+        and(
+          eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento),
+          eq(usuarioEntrenamiento.rol, rolOrganizador)
+        )
+      )
+      .where(
+        and(
+          eq(solicitud.email, email),
+          eq(solicitud.estado, "aprobado")
+        )
+      )
+      .orderBy(
+        sql`CASE WHEN ${entrenamiento.estado} = 'finalizado' THEN 1 ELSE 0 END`,
+        asc(entrenamiento.fechaInicio)
+      );
+
+    const [organizadosRows, participandoRows] = pagina !== undefined
+      ? await Promise.all([
+          (organizadosQuery as any).limit(limite).offset(offset!),
+          (participandoQuery as any).limit(limite).offset(offset!),
+        ])
+      : await Promise.all([organizadosQuery, participandoQuery]);
+
+    return {
+      organizados: (organizadosRows as EntrenamientoRow[]).map((r) => mapEntrenamiento(r)),
+      participando: (participandoRows as EntrenamientoRow[]).map((r) => mapEntrenamiento(r)),
+      totalOrganizados,
+      totalParticipando,
+      pagina: pagina ?? 1,
+      totalPaginas: Math.ceil(totalGeneral / (pagina !== undefined ? limite : Math.max(totalGeneral, 1))),
+    };
+  } catch (error) {
     throwDatabaseUnavailable(error, "getMisEntrenamientos");
   }
 }

@@ -1,30 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import EntrenamientoCard from "../components/Entrenamientos/EntrenamientoCard";
 import CrearEntrenamientoModal from "../components/Entrenamientos/CrearEntrenamientoModal";
+import Pagination from "../components/Pagination";
 import type { EntrenamientoListItem } from "@/services/entrenamientoService";
 
 const deportes = ["running", "cycling"] as const;
 const niveles = ["principiante", "intermedio", "avanzado"] as const;
+const LIMITE = 10;
 
 export default function EntrenamientosPage() {
-  const [entrenamientos, setEntrenamientos] = useState<EntrenamientoListItem[]>(
-    []
-  );
+  const [entrenamientos, setEntrenamientos] = useState<EntrenamientoListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [deporte, setDeporte] = useState("");
   const [nivel, setNivel] = useState("");
   const [fecha, setFecha] = useState("");
   const [radio, setRadio] = useState(10);
   const [modalAbierto, setModalAbierto] = useState(false);
-  const [ubicacion, setUbicacion] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const [ubicacion, setUbicacion] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState("");
   const [emailUsuario, setEmailUsuario] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
 
 
   useEffect(() => {
@@ -59,55 +59,46 @@ export default function EntrenamientosPage() {
     }
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const params = new URLSearchParams();
-        if (deporte) params.set("deporte", deporte);
-        if (nivel) params.set("nivel", nivel);
-        if (fecha) params.set("fecha", fecha);
-        if (ubicacion) {
-          params.set("lat", String(ubicacion.lat));
-          params.set("lng", String(ubicacion.lng));
-          params.set("radio", String(radio));
-        }
-
-        const qs = params.toString();
-        const url = qs ? `/api/trainings?${qs}` : "/api/trainings";
-
-        const res = await fetch(url);
-        const json = await res.json();
-
-        if (cancelled) return;
-
-        if (!json.ok) {
-          throw new Error(
-            json.error?.message ?? "Error al cargar entrenamientos"
-          );
-        }
-
-        setEntrenamientos(json.data);
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Error de conexión"
-          );
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const cargar = useCallback(async (p: number) => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("pagina", String(p));
+      params.set("limite", String(LIMITE));
+      if (deporte) params.set("deporte", deporte);
+      if (nivel) params.set("nivel", nivel);
+      if (fecha) params.set("fecha", fecha);
+      if (ubicacion) {
+        params.set("lat", String(ubicacion.lat));
+        params.set("lng", String(ubicacion.lng));
+        params.set("radio", String(radio));
       }
+
+      const res = await fetch(`/api/trainings?${params.toString()}`);
+      const json = await res.json();
+
+      if (!json.ok) {
+        throw new Error(json.error?.message ?? "Error al cargar entrenamientos");
+      }
+
+      setEntrenamientos(json.data);
+      setTotal(json.total ?? 0);
+      setTotalPaginas(json.totalPaginas ?? 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error de conexión");
+    } finally {
+      setLoading(false);
     }
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
   }, [deporte, nivel, fecha, ubicacion, radio]);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [deporte, nivel, fecha, ubicacion, radio]);
+
+  useEffect(() => {
+    cargar(pagina);
+  }, [pagina, cargar]);
 
   function limpiarFiltros() {
     setDeporte("");
@@ -132,6 +123,7 @@ export default function EntrenamientosPage() {
             {ubicacion
               ? `Entrenamientos disponibles en un radio de ${radio} km`
               : "Entrenamientos disponibles"}
+            {total > 0 && ` · ${total} resultado${total !== 1 ? "s" : ""}`}
           </p>
         </div>
 
@@ -144,7 +136,7 @@ export default function EntrenamientosPage() {
               id="filtro-deporte"
               className="filtro-select"
               value={deporte}
-              onChange={(e) => setDeporte(e.target.value)}
+              onChange={(e) => { setDeporte(e.target.value); setPagina(1); }}
             >
               <option value="">Todos</option>
               {deportes.map((d) => (
@@ -163,7 +155,7 @@ export default function EntrenamientosPage() {
               id="filtro-nivel"
               className="filtro-select"
               value={nivel}
-              onChange={(e) => setNivel(e.target.value)}
+              onChange={(e) => { setNivel(e.target.value); setPagina(1); }}
             >
               <option value="">Todos</option>
               {niveles.map((n) => (
@@ -183,7 +175,7 @@ export default function EntrenamientosPage() {
               type="date"
               className="filtro-date"
               value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
+              onChange={(e) => { setFecha(e.target.value); setPagina(1); }}
             />
           </div>
 
@@ -197,7 +189,7 @@ export default function EntrenamientosPage() {
               min="1"
               max="50"
               value={radio}
-              onChange={(e) => setRadio(Number(e.target.value))}
+              onChange={(e) => { setRadio(Number(e.target.value)); setPagina(1); }}
               style={{ accentColor: "var(--rc-accent)", width: "100%" }}
             />
           </div>
@@ -243,6 +235,10 @@ export default function EntrenamientosPage() {
               <EntrenamientoCard key={e.codigoEntrenamiento} entrenamiento={e} mostrarBotonSolicitud = { emailUsuario !== "" && emailUsuario !== e.emailOrganizador && !e.esParticipante } esOrganizador={emailUsuario === e.emailOrganizador} esParticipante={e.esParticipante} />
             ))}
         </div>
+
+        {totalPaginas > 1 && (
+          <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambio={setPagina} />
+        )}
       </div>
 
       <button className="rc-fab" onClick={() => setModalAbierto(true)}>
@@ -252,24 +248,7 @@ export default function EntrenamientosPage() {
       <CrearEntrenamientoModal
         open={modalAbierto}
         onClose={() => setModalAbierto(false)}
-        onCreated={() => {
-          const params = new URLSearchParams();
-          if (deporte) params.set("deporte", deporte);
-          if (nivel) params.set("nivel", nivel);
-          if (fecha) params.set("fecha", fecha);
-          if (ubicacion) {
-            params.set("lat", String(ubicacion.lat));
-            params.set("lng", String(ubicacion.lng));
-            params.set("radio", String(radio));
-          }
-          const qs = params.toString();
-          const url = qs ? `/api/trainings?${qs}` : "/api/trainings";
-          fetch(url)
-            .then((r) => r.json())
-            .then((json) => {
-              if (json.ok) setEntrenamientos(json.data);
-            });
-        }}
+        onCreated={() => cargar(pagina)}
       />
     </div>
   );

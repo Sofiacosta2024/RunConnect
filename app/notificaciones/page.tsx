@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
+import Pagination from "../components/Pagination";
 
 type Notificacion = {
   codigoNotificacion: number;
@@ -14,24 +15,32 @@ type Notificacion = {
   creadoEn: string;
 };
 
+const LIMITE = 20;
+
 export default function NotificacionesPage() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [total, setTotal] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
-    cargarNotificaciones();
-  }, []);
+    cargarNotificaciones(pagina);
+  }, [pagina]);
 
-  async function cargarNotificaciones() {
+  async function cargarNotificaciones(p: number) {
+    setCargando(true);
     try {
-      const res = await fetch("/api/notificaciones");
+      const res = await fetch(`/api/notificaciones?pagina=${p}&limite=${LIMITE}`);
       if (!res.ok) {
         if (res.status === 401) router.push("/login");
         return;
       }
       const data = await res.json();
       setNotificaciones(data.notificaciones ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPaginas(data.totalPaginas ?? 1);
     } catch {
       // ignore
     } finally {
@@ -59,7 +68,7 @@ export default function NotificacionesPage() {
     if (id) router.push(`/chat/${id}`);
   }
 
-  const noLeidas = notificaciones.filter((n) => !n.leida).length;
+  const noLeidasPagina = notificaciones.filter((n) => !n.leida).length;
 
   return (
     <div className="rc-root">
@@ -71,10 +80,12 @@ export default function NotificacionesPage() {
               Notificaciones
             </h1>
             <p style={{ color: "var(--rc-muted)", fontSize: "0.9rem", marginTop: "0.3rem" }}>
-              {noLeidas > 0 ? `Tenés ${noLeidas} notificación${noLeidas !== 1 ? "es" : ""} sin leer` : "No hay notificaciones nuevas"}
+              {total > 0
+                ? `${total} notificación${total !== 1 ? "es" : ""}`
+                : "No hay notificaciones"}
             </p>
           </div>
-          {noLeidas > 0 && (
+          {total > 0 && (
             <button
               onClick={marcarTodasLeidas}
               style={{
@@ -118,91 +129,96 @@ export default function NotificacionesPage() {
             </p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {notificaciones.map((n) => {
-              const esNoLeida = !n.leida;
-              const esAceptada = n.tipo === "solicitud_aceptada";
-              return (
-                <div
-                  key={n.codigoNotificacion}
-                  onClick={() => {
-                    if (esNoLeida) marcarLeida(n.codigoNotificacion);
-                    if (esAceptada && n.codigoEntrenamiento) irAChat(n.codigoEntrenamiento);
-                  }}
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    background: esNoLeida
-                      ? "rgba(255,60,60,0.06)"
-                      : "transparent",
-                    border: esNoLeida
-                      ? "1px solid rgba(255,60,60,0.12)"
-                      : "1px solid rgba(255,255,255,0.05)",
-                    cursor: esAceptada ? "pointer" : "default",
-                    transition: "background 0.2s",
-                  }}
-                >
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {notificaciones.map((n) => {
+                const esNoLeida = !n.leida;
+                const esAceptada = n.tipo === "solicitud_aceptada";
+                return (
                   <div
+                    key={n.codigoNotificacion}
+                    onClick={() => {
+                      if (esNoLeida) marcarLeida(n.codigoNotificacion);
+                      if (esAceptada && n.codigoEntrenamiento) irAChat(n.codigoEntrenamiento);
+                    }}
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      background: esAceptada
-                        ? "rgba(76, 217, 100, 0.12)"
-                        : "rgba(255, 165, 0, 0.12)",
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 18,
-                      flexShrink: 0,
+                      gap: 12,
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: esNoLeida
+                        ? "rgba(255,60,60,0.06)"
+                        : "transparent",
+                      border: esNoLeida
+                        ? "1px solid rgba(255,60,60,0.12)"
+                        : "1px solid rgba(255,255,255,0.05)",
+                      cursor: esAceptada ? "pointer" : "default",
+                      transition: "background 0.2s",
                     }}
                   >
-                    {esAceptada ? "✅" : "📩"}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 14,
-                        fontWeight: esNoLeida ? 600 : 400,
-                        color: "#F0EFF5",
-                      }}
-                    >
-                      {n.mensaje}
-                    </p>
-                    <p
-                      style={{
-                        margin: "4px 0 0",
-                        fontSize: 12,
-                        color: "#7B7B8F",
-                      }}
-                    >
-                      {new Date(n.creadoEn).toLocaleDateString("es-AR", {
-                        day: "numeric",
-                        month: "long",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                  {esNoLeida && (
                     <div
                       style={{
-                        width: 8,
-                        height: 8,
+                        width: 40,
+                        height: 40,
                         borderRadius: "50%",
-                        background: "#FF3C3C",
+                        background: esAceptada
+                          ? "rgba(76, 217, 100, 0.12)"
+                          : "rgba(255, 165, 0, 0.12)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 18,
                         flexShrink: 0,
-                        marginTop: 6,
                       }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    >
+                      {esAceptada ? "✅" : "📩"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 14,
+                          fontWeight: esNoLeida ? 600 : 400,
+                          color: "#F0EFF5",
+                        }}
+                      >
+                        {n.mensaje}
+                      </p>
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          fontSize: 12,
+                          color: "#7B7B8F",
+                        }}
+                      >
+                        {new Date(n.creadoEn).toLocaleDateString("es-AR", {
+                          day: "numeric",
+                          month: "long",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    {esNoLeida && (
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "#FF3C3C",
+                          flexShrink: 0,
+                          marginTop: 6,
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {totalPaginas > 1 && (
+              <Pagination pagina={pagina} totalPaginas={totalPaginas} onCambio={setPagina} />
+            )}
+          </>
         )}
       </div>
     </div>

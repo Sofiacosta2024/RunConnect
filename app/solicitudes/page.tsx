@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import Navbar from "../components/Navbar";
 import SolicitudCard from "../components/Solicitudes/SolicitudCard";
+import Pagination from "../components/Pagination";
 
 import { getAuth } from "@/lib/auth";
 import { getSolicitudesPendientesDelOrganizador } from "@/services/solicitudService";
@@ -12,14 +13,40 @@ import { inArray } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-export default async function SolicitudesPage() {
+const LIMITE = 10;
+
+type SolicitudRow = {
+  codigoSolicitud: number;
+  estado: string;
+  fecha: Date;
+  emailSolicitante: string;
+  nombreSolicitante: string;
+  codigoEntrenamiento: number;
+  deporte: string;
+  fechaInicio: Date;
+  nivel: string;
+  cupo: number | null;
+};
+
+export default async function SolicitudesPage(props: { searchParams: Promise<{ pagina?: string }> }) {
   const auth = getAuth();
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.email) redirect("/login");
 
-  const solicitudes = await getSolicitudesPendientesDelOrganizador(session.user.email);
+  const { pagina: rawPagina } = await props.searchParams;
+  const pagina = Math.max(1, Number(rawPagina) || 1);
 
-  const codigosEntrenamiento = [...new Set(solicitudes.map((s) => s.codigoEntrenamiento))];
+  const result = await getSolicitudesPendientesDelOrganizador(
+    session.user.email,
+    pagina,
+    LIMITE
+  );
+
+  const solicitudes: SolicitudRow[] = (result as any).data ?? [];
+  const total: number = (result as any).total ?? 0;
+  const totalPaginas: number = (result as any).totalPaginas ?? 1;
+
+  const codigosEntrenamiento: number[] = [...new Set(solicitudes.map((s) => s.codigoEntrenamiento))];
 
   const [entrenamientos, participantes] = codigosEntrenamiento.length > 0
     ? await Promise.all([
@@ -57,6 +84,7 @@ export default async function SolicitudesPage() {
           </h1>
           <p style={{ color: "var(--rc-muted)", fontSize: "0.9rem", marginTop: "0.3rem" }}>
             Aceptá o rechazá las solicitudes de participación en tus entrenamientos.
+            {total > 0 && <> · {total} pendiente{total !== 1 ? "s" : ""}</>}
           </p>
         </div>
 
@@ -73,18 +101,21 @@ export default async function SolicitudesPage() {
             </p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {solicitudes.map((s) => (
-              <SolicitudCard
-                key={s.codigoSolicitud}
-                solicitud={{
-                  ...s,
-                  cupoMaximo: cupoMap[s.codigoEntrenamiento]?.cupoMaximo ?? null,
-                  cupoOcupado: cupoMap[s.codigoEntrenamiento]?.cupoOcupado ?? 0,
-                }}
-              />
-            ))}
-          </div>
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {solicitudes.map((s) => (
+                <SolicitudCard
+                  key={s.codigoSolicitud}
+                  solicitud={{
+                    ...s,
+                    cupoMaximo: cupoMap[s.codigoEntrenamiento]?.cupoMaximo ?? null,
+                    cupoOcupado: cupoMap[s.codigoEntrenamiento]?.cupoOcupado ?? 0,
+                  }}
+                />
+              ))}
+            </div>
+            <Pagination pagina={pagina} totalPaginas={totalPaginas} />
+          </>
         )}
       </div>
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { desc, eq, and, sql, count } from "drizzle-orm";
+import { desc, eq, and, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notificacion } from "@/db/schema";
 
@@ -33,13 +33,32 @@ export async function crearNotificacion(
   return nueva;
 }
 
-export async function getNotificaciones(email: string) {
-  return db
+export async function getNotificaciones(email: string, pagina?: number, limite: number = 20) {
+  const offset = pagina ? (pagina - 1) * limite : undefined;
+
+  const countResult = await db
+    .select({ total: count() })
+    .from(notificacion)
+    .where(eq(notificacion.email, email));
+
+  const total = Number(countResult[0]?.total ?? 0);
+
+  let query = db
     .select()
     .from(notificacion)
     .where(eq(notificacion.email, email))
-    .orderBy(desc(notificacion.creadoEn))
-    .limit(50);
+    .orderBy(desc(notificacion.creadoEn));
+
+  const rows = pagina !== undefined
+    ? await (query as any).limit(limite).offset(offset!)
+    : await query;
+
+  return {
+    data: rows,
+    total,
+    pagina: pagina ?? 1,
+    totalPaginas: Math.ceil(total / (pagina !== undefined ? limite : Math.max(total, 1))),
+  };
 }
 
 export async function getNotificacionesNoLeidas(email: string) {

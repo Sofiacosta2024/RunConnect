@@ -38,6 +38,8 @@ export async function GET(request: Request) {
     const rawLat = searchParams.get("lat");
     const rawLng = searchParams.get("lng");
     const rawRadio = searchParams.get("radio");
+    const rawPagina = searchParams.get("pagina");
+    const rawLimite = searchParams.get("limite");
 
     const deporte = rawDeporte?.trim() || undefined;
     const nivel = rawNivel?.trim() || undefined;
@@ -45,6 +47,8 @@ export async function GET(request: Request) {
     const lat = rawLat ? Number(rawLat) : undefined;
     const lng = rawLng ? Number(rawLng) : undefined;
     const radioKm = rawRadio ? Number(rawRadio) : undefined;
+    const pagina = rawPagina ? Math.max(1, Number(rawPagina)) : undefined;
+    const limite = rawLimite ? Math.max(1, Number(rawLimite)) : undefined;
 
     // Obtener el email del usuario logueado (opcional — puede no estar autenticado)
     const auth = getAuth();
@@ -52,11 +56,11 @@ export async function GET(request: Request) {
     const emailUsuario = session?.user?.email ?? "";
 
     if (!deporte && !nivel && !fecha && lat === undefined && lng === undefined) {
-      const entrenamientos = await getAll();
-      return NextResponse.json({ ok: true, data: entrenamientos });
+      const result = await getAll(pagina, limite);
+      return NextResponse.json({ ok: true, ...result });
     }
 
-    const entrenamientos = await getFiltered({
+    const result = await getFiltered({
       codigoDeporte: deporte,
       nivel,
       fecha,
@@ -64,9 +68,9 @@ export async function GET(request: Request) {
       lng,
       radioKm,
       emailUsuario,
-    });
+    }, pagina, limite);
 
-    return NextResponse.json({ ok: true, data: entrenamientos });
+    return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return toApiErrorResponse(error);
   }

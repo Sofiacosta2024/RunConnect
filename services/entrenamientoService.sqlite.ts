@@ -244,11 +244,25 @@ function throwDatabaseUnavailable(error: unknown, operation: string): never {
   throw new DatabaseUnavailableError("No se pudo acceder a la base de datos local.");
 }
 
-export async function getAll() {
+export async function getAll(pagina?: number, limite: number = 10) {
   try {
-    const rows = db
+    const countRow = db
       .prepare(
         `
+        SELECT COUNT(*) AS total
+        FROM "ENTRENAMIENTO" e
+        INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+        INNER JOIN "USUARIO_ENTRENAMIENTO" ue
+          ON ue.codigo_entrenamiento = e.codigo_entrenamiento
+         AND ue.rol = ?
+      `
+      )
+      .get(rolOrganizador) as { total: number };
+
+    const total = Number(countRow?.total ?? 0);
+    const offset = pagina ? (pagina - 1) * limite : undefined;
+
+    let sql = `
         SELECT
           e.codigo_entrenamiento AS codigoEntrenamiento,
           ue.email AS emailOrganizador,
@@ -268,11 +282,23 @@ export async function getAll() {
           ON ue.codigo_entrenamiento = e.codigo_entrenamiento
          AND ue.rol = ?
         ORDER BY e.fecha_inicio DESC, e.codigo_entrenamiento DESC
-      `
-      )
-      .all(rolOrganizador) as EntrenamientoRow[];
+      `;
 
-    return rows.map((row: EntrenamientoRow) => mapEntrenamiento(row));
+    const params: (string | number)[] = [rolOrganizador];
+
+    if (pagina !== undefined) {
+      sql += ` LIMIT ? OFFSET ?`;
+      params.push(limite, offset!);
+    }
+
+    const rows = db.prepare(sql).all(...params) as EntrenamientoRow[];
+
+    return {
+      data: rows.map((row: EntrenamientoRow) => mapEntrenamiento(row)),
+      total,
+      pagina: pagina ?? 1,
+      totalPaginas: Math.ceil(total / (pagina !== undefined ? limite : Math.max(total, 1))),
+    };
   } catch (error) {
     throwDatabaseUnavailable(error, "getAll");
   }
@@ -301,7 +327,7 @@ function parsePointCoords(wkt: string): { lat: number; lng: number } | null {
   return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
 }
 
-export async function getFiltered(params: GetFilteredParams = {}) {
+export async function getFiltered(params: GetFilteredParams = {}, pagina?: number, limite: number = 10) {
   try {
     const conditions: string[] = ["e.fecha_inicio > datetime('now')"];
 
@@ -322,7 +348,20 @@ export async function getFiltered(params: GetFilteredParams = {}) {
     if (params.nivel) queryParams.push(params.nivel);
     if (params.fecha) queryParams.push(params.fecha);
 
-    const sql = `
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM "ENTRENAMIENTO" e
+      INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
+      INNER JOIN "USUARIO_ENTRENAMIENTO" ue
+        ON ue.codigo_entrenamiento = e.codigo_entrenamiento
+       AND ue.rol = ?
+      WHERE ${whereClause}
+    `;
+
+    const countRow = db.prepare(countSql).get(rolOrganizador, ...queryParams) as { total: number };
+    let total = Number(countRow?.total ?? 0);
+
+    let sql = `
       SELECT
         e.codigo_entrenamiento AS codigoEntrenamiento,
         ue.email AS emailOrganizador,
@@ -345,7 +384,15 @@ export async function getFiltered(params: GetFilteredParams = {}) {
       ORDER BY e.fecha_inicio ASC
     `;
 
-    const rows = db.prepare(sql).all(rolOrganizador, ...queryParams) as EntrenamientoRow[];
+    const selectParams: (string | number)[] = [rolOrganizador, ...queryParams];
+
+    if (pagina !== undefined) {
+      const offset = (pagina - 1) * limite;
+      sql += ` LIMIT ? OFFSET ?`;
+      selectParams.push(limite, offset);
+    }
+
+    const rows = db.prepare(sql).all(...selectParams) as EntrenamientoRow[];
 
     let result = rows.map((row) => mapEntrenamiento(row));
 
@@ -358,9 +405,16 @@ export async function getFiltered(params: GetFilteredParams = {}) {
         const dist = haversineDistance(params.lat!, params.lng!, coords.lat, coords.lng);
         return dist <= radioKm;
       });
+      // Recalculate total after filtering by distance
+      total = result.length;
     }
 
-    return result;
+    return {
+      data: result,
+      total,
+      pagina: pagina ?? 1,
+      totalPaginas: Math.ceil(total / (pagina !== undefined ? limite : Math.max(total, 1))),
+    };
   } catch (error) {
     throwDatabaseUnavailable(error, "getFiltered");
   }
@@ -708,15 +762,35 @@ export async function crearEntrenamientoConChat(
 }
 
 export async function getMisEntrenamientos(
-  email: string
+  email: string,
+  pagina?: number,
+  limite: number = 10
 ): Promise<{
   organizados: EntrenamientoListItem[];
   participando: EntrenamientoListItem[];
+  totalOrganizados: number;
+  totalParticipando: number;
+  pagina: number;
+  totalPaginas: number;
 }> {
   try {
-    const organizadosRows = db
+    const countOrgRow = db
       .prepare(
-        `
+        `SELECT COUNT(*) AS total FROM "USUARIO_ENTRENAMIENTO" WHERE email = ? AND rol = ?`
+      )
+      .get(email, "organizador") as { total: number };
+    const totalOrganizados = Number(countOrgRow?.total ?? 0);
+
+    const countPartRow = db
+      .prepare(
+        `SELECT COUNT(*) AS total FROM "SOLICITUD" WHERE email = ? AND estado = ?`
+      )
+      .get(email, "aprobado") as { total: number };
+    const totalParticipando = Number(countPartRow?.total ?? 0);
+    const totalGeneral = totalOrganizados + totalParticipando;
+    const offset = pagina !== undefined ? (pagina - 1) * limite : undefined;
+
+    let orgSql = `
         SELECT
           e.codigo_entrenamiento AS codigoEntrenamiento,
           ue.email AS emailOrganizador,
@@ -736,13 +810,17 @@ export async function getMisEntrenamientos(
         INNER JOIN "DEPORTE" d ON d.nombre = e.codigo_deporte
         WHERE ue.email = ? AND ue.rol = ?
         ORDER BY CASE WHEN e.estado = 'finalizado' THEN 1 ELSE 0 END, e.fecha_inicio ASC
-      `
-      )
-      .all(email, "organizador") as EntrenamientoRow[];
+      `;
+    const orgParams: (string | number)[] = [email, "organizador"];
 
-    const participandoRows = db
-      .prepare(
-        `
+    if (pagina !== undefined) {
+      orgSql += ` LIMIT ? OFFSET ?`;
+      orgParams.push(limite, offset!);
+    }
+
+    const organizadosRows = db.prepare(orgSql).all(...orgParams) as EntrenamientoRow[];
+
+    let partSql = `
         SELECT
           e.codigo_entrenamiento AS codigoEntrenamiento,
           org.email AS emailOrganizador,
@@ -765,13 +843,23 @@ export async function getMisEntrenamientos(
          AND org.rol = ?
         WHERE s.email = ? AND s.estado = ?
         ORDER BY CASE WHEN e.estado = 'finalizado' THEN 1 ELSE 0 END, e.fecha_inicio ASC
-      `
-      )
-      .all("organizador", email, "aprobado") as EntrenamientoRow[];
+      `;
+    const partParams: (string | number)[] = ["organizador", email, "aprobado"];
+
+    if (pagina !== undefined) {
+      partSql += ` LIMIT ? OFFSET ?`;
+      partParams.push(limite, offset!);
+    }
+
+    const participandoRows = db.prepare(partSql).all(...partParams) as EntrenamientoRow[];
 
     return {
       organizados: organizadosRows.map((row) => mapEntrenamiento(row)),
       participando: participandoRows.map((row) => mapEntrenamiento(row)),
+      totalOrganizados,
+      totalParticipando,
+      pagina: pagina ?? 1,
+      totalPaginas: Math.ceil(totalGeneral / (pagina !== undefined ? limite : Math.max(totalGeneral, 1))),
     };
   } catch (error) {
     throwDatabaseUnavailable(error, "getMisEntrenamientos");

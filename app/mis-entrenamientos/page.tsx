@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import Navbar from "../components/Navbar";
 import { getAuth } from "@/lib/auth";
 import { getMisEntrenamientos } from "@/services/entrenamientoService";
-
+import Pagination from "../components/Pagination";
 import EntrenamientoCard from "../components/Entrenamientos/EntrenamientoCard";
 
-export default async function MisEntrenamientosPage() {
+export default async function MisEntrenamientosPage(props: { searchParams: Promise<{ pagina?: string }> }) {
   const auth = getAuth();
 
   const session = await auth.api.getSession({
@@ -17,8 +17,12 @@ export default async function MisEntrenamientosPage() {
     redirect("/login");
   }
 
-  const { organizados, participando } = await getMisEntrenamientos(
-    session.user.email
+  const { pagina: rawPagina } = await props.searchParams;
+  const pagina = Math.max(1, Number(rawPagina) || 1);
+
+  const { organizados, participando, totalOrganizados, totalParticipando, totalPaginas } = await getMisEntrenamientos(
+    session.user.email,
+    pagina
   );
 
 return (
@@ -31,14 +35,14 @@ return (
         </h1>
 
         <p className="entrenamientos-subtitle">
-          Entrenamientos en los que participás.
+          {totalOrganizados + totalParticipando} entrenamiento{(totalOrganizados + totalParticipando) !== 1 ? "s" : ""} en total.
         </p>
       </div>
 
       <div className="entrenamientos-lista">
 
           <h2 className="mis-entrenamientos-section">
-            🏅 Entrenamientos que organizo
+            🏅 Entrenamientos que organizo {totalOrganizados > 0 && <span style={{ color: "var(--rc-muted)", fontSize: 14, fontWeight: 400 }}>({totalOrganizados})</span>}
           </h2>
 
           {organizados.length === 0 ? (
@@ -59,7 +63,7 @@ return (
             className="mis-entrenamientos-section"
             style={{ marginTop: 40 }}
           >
-            🙋 Entrenamientos donde participo
+            🙋 Entrenamientos donde participo {totalParticipando > 0 && <span style={{ color: "var(--rc-muted)", fontSize: 14, fontWeight: 400 }}>({totalParticipando})</span>}
           </h2>
 
           {participando.length === 0 ? (
@@ -76,6 +80,7 @@ return (
             ))
           )}
 
+          <Pagination pagina={pagina} totalPaginas={totalPaginas} />
         </div>
     </div>
   </div>

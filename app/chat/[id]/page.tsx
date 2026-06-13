@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { getMensajes, enviarMensaje } from "./actions";
 
-type Mensaje = Awaited<ReturnType<typeof getMensajes>>[number];
+type Mensaje = Awaited<ReturnType<typeof getMensajes>>["messages"][number];
 
 function agruparPorFecha(mensajes: Mensaje[]) {
   const grupos: { label: string; items: Mensaje[] }[] = [];
@@ -94,25 +94,66 @@ export default function ChatPage() {
   const [isPending, startTransition] = useTransition();
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [cargandoMas, setCargandoMas] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [paginaActual, setPaginaActual] = useState(1);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const esPrimeraCarga = useRef(true);
+  const idsConocidos = useRef(new Set<number>());
+
+  const LIMITE = 50;
 
   useEffect(() => {
     if (isNaN(codigoEntrenamiento)) return;
-    const cargar = async () => {
+    const cargar = async (esInicial: boolean) => {
       try {
-        const data = await getMensajes(codigoEntrenamiento);
-        setMensajes(data);
-        if (esPrimeraCarga.current) { setCargando(false); esPrimeraCarga.current = false; }
-      } catch { setCargando(false); }
+        const result = await getMensajes(codigoEntrenamiento, 1, LIMITE);
+        const nuevos = result.messages.filter((m) => !idsConocidos.current.has(m.codigoMensaje));
+        nuevos.forEach((m) => idsConocidos.current.add(m.codigoMensaje));
+        if (nuevos.length > 0) {
+          setMensajes((prev) => {
+            const combinados = [...prev, ...nuevos];
+            combinados.sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
+            return combinados;
+          });
+        }
+        setHasMore(result.hasMore);
+        setPaginaActual(1);
+        if (esInicial) { setCargando(false); esPrimeraCarga.current = false; }
+      } catch {
+        if (esInicial) setCargando(false);
+      }
     };
-    cargar();
-    const intervalo = setInterval(cargar, 3000);
+    cargar(true);
+    const intervalo = setInterval(() => cargar(false), 3000);
     return () => clearInterval(intervalo);
   }, [codigoEntrenamiento]);
+
+  async function cargarMasMensajes() {
+    if (cargandoMas) return;
+    setCargandoMas(true);
+    try {
+      const result = await getMensajes(codigoEntrenamiento, paginaActual + 1, LIMITE);
+      const nuevos = result.messages.filter((m) => !idsConocidos.current.has(m.codigoMensaje));
+      nuevos.forEach((m) => idsConocidos.current.add(m.codigoMensaje));
+      if (nuevos.length > 0) {
+        setMensajes((prev) => {
+          const combinados = [...nuevos, ...prev];
+          combinados.sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
+          return combinados;
+        });
+      }
+      setHasMore(result.hasMore);
+      setPaginaActual((p) => p + 1);
+    } catch {
+      // ignore
+    } finally {
+      setCargandoMas(false);
+    }
+  }
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -130,8 +171,16 @@ export default function ChatPage() {
     startTransition(async () => {
       try {
         await enviarMensaje(codigoEntrenamiento, contenido);
-        const data = await getMensajes(codigoEntrenamiento);
-        setMensajes(data);
+        const result = await getMensajes(codigoEntrenamiento, 1, LIMITE);
+        const nuevos = result.messages.filter((m) => !idsConocidos.current.has(m.codigoMensaje));
+        nuevos.forEach((m) => idsConocidos.current.add(m.codigoMensaje));
+        if (nuevos.length > 0) {
+          setMensajes((prev) => {
+            const combinados = [...prev, ...nuevos];
+            combinados.sort((a, b) => new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime());
+            return combinados;
+          });
+        }
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Error al enviar el mensaje";
@@ -193,7 +242,29 @@ export default function ChatPage() {
               <p style={{ fontSize: 13, color: "#7B7B8F", margin: 0 }}>Sé el primero en iniciar la conversación.</p>
             </div>
           ) : (
-            grupos.map((grupo) => {
+            <>
+              {hasMore && (
+                <div style={{ textAlign: "center", marginBottom: 12 }}>
+                  <button
+                    onClick={cargarMasMensajes}
+                    disabled={cargandoMas}
+                    style={{
+                      background: "rgba(255,60,60,0.1)",
+                      border: "1px solid rgba(255,60,60,0.2)",
+                      color: "#FF3C3C",
+                      padding: "8px 20px",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: cargandoMas ? "not-allowed" : "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    {cargandoMas ? "Cargando..." : "📩 Cargar mensajes anteriores"}
+                  </button>
+                </div>
+              )}
+              {grupos.map((grupo) => {
               let emailAnterior: string | null = null;
               return (
                 <div key={grupo.label}>
@@ -206,7 +277,8 @@ export default function ChatPage() {
                   })}
                 </div>
               );
-            })
+            })}
+            </>
           )}
           <div ref={bottomRef} />
         </div>

@@ -3,12 +3,22 @@
 
 import { db } from "@/lib/db";
 import { mensaje, usuario } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc, count } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getServerSession } from "@/lib/auth-server";
 
-export async function getMensajes(codigoEntrenamiento: number) {
-  return db
+export async function getMensajes(codigoEntrenamiento: number, pagina: number = 1, limite: number = 50) {
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(mensaje)
+    .where(eq(mensaje.codigoEntrenamiento, codigoEntrenamiento));
+
+  const total = Number(countRow?.total ?? 0);
+  const totalPaginas = Math.ceil(total / limite);
+  const offset = (pagina - 1) * limite;
+
+  // Load most recent messages first, then reverse for display
+  const rows = await db
     .select({
       codigoMensaje: mensaje.codigoMensaje,
       contenido: mensaje.contenido,
@@ -20,7 +30,17 @@ export async function getMensajes(codigoEntrenamiento: number) {
     .from(mensaje)
     .innerJoin(usuario, eq(mensaje.email, usuario.email))
     .where(eq(mensaje.codigoEntrenamiento, codigoEntrenamiento))
-    .orderBy(asc(mensaje.creadoEn));
+    .orderBy(desc(mensaje.creadoEn))
+    .limit(limite)
+    .offset(offset);
+
+  return {
+    messages: rows.reverse(),
+    total,
+    totalPaginas,
+    pagina,
+    hasMore: pagina < totalPaginas,
+  };
 }
 
 export async function enviarMensaje(codigoEntrenamiento: number, contenido: string) {

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, and, eq, count,sql} from "drizzle-orm";
+import { asc, and, eq, count, sql } from "drizzle-orm";
 import { crearNotificacion } from "@/services/notificacionService";
 import { db } from "@/lib/db";
 import {
@@ -451,85 +451,69 @@ export async function rechazarSolicitud(
 }
 
 export async function getSolicitudesPendientesDelOrganizador(
-  emailOrganizador: string
+  emailOrganizador: string,
+  pagina?: number,
+  limite: number = 10
 ) {
-  return await db
-    .select({
-      codigoSolicitud: solicitud.codigoSolicitud,
+  const selectFields = {
+    codigoSolicitud: solicitud.codigoSolicitud,
+    estado: solicitud.estado,
+    fecha: solicitud.fecha,
+    emailSolicitante: solicitud.email,
+    nombreSolicitante: usuario.nombre,
+    codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+    deporte: entrenamiento.codigoDeporte,
+    fechaInicio: entrenamiento.fechaInicio,
+    nivel: entrenamiento.nivel,
+    cupo: entrenamiento.cupoMaximo,
+  };
 
-      estado: solicitud.estado,
-
-      fecha: solicitud.fecha,
-
-      emailSolicitante: solicitud.email,
-
-      nombreSolicitante: usuario.nombre,
-
-      codigoEntrenamiento:
-        entrenamiento.codigoEntrenamiento,
-
-      deporte:
-        entrenamiento.codigoDeporte,
-
-      fechaInicio:
-        entrenamiento.fechaInicio,
-
-      nivel:
-        entrenamiento.nivel,
-
-      cupo:
-        entrenamiento.cupoMaximo,
-    })
+  const [countRow] = await db
+    .select({ total: count() })
     .from(usuarioEntrenamiento)
-
-    .innerJoin(
-      entrenamiento,
-      eq(
-        usuarioEntrenamiento.codigoEntrenamiento,
-        entrenamiento.codigoEntrenamiento
-      )
-    )
-
-    .innerJoin(
-      solicitud,
-      eq(
-        solicitud.codigoEntrenamiento,
-        entrenamiento.codigoEntrenamiento
-      )
-    )
-
-    .innerJoin(
-      usuario,
-      eq(
-        usuario.email,
-        solicitud.email
-      )
-    )
-
+    .innerJoin(entrenamiento, eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento))
+    .innerJoin(solicitud, eq(solicitud.codigoEntrenamiento, entrenamiento.codigoEntrenamiento))
+    .innerJoin(usuario, eq(usuario.email, solicitud.email))
     .where(
       and(
-        eq(
-          usuarioEntrenamiento.email,
-          emailOrganizador
-        ),
-        eq(
-          usuarioEntrenamiento.rol,
-          "organizador"
-        ),
-        eq(
-          solicitud.estado,
-          "pendiente"
-        ),
-        eq( 
-          entrenamiento.estado, "abierto"
-        ),
+        eq(usuarioEntrenamiento.email, emailOrganizador),
+        eq(usuarioEntrenamiento.rol, "organizador"),
+        eq(solicitud.estado, "pendiente"),
+        eq(entrenamiento.estado, "abierto"),
+        sql`${entrenamiento.fechaInicio} > NOW() + INTERVAL '2 hours'`
+      )
+    );
+
+  const total = Number(countRow?.total ?? 0);
+  const offset = pagina !== undefined ? (pagina - 1) * limite : undefined;
+
+  let query = db
+    .select(selectFields)
+    .from(usuarioEntrenamiento)
+    .innerJoin(entrenamiento, eq(usuarioEntrenamiento.codigoEntrenamiento, entrenamiento.codigoEntrenamiento))
+    .innerJoin(solicitud, eq(solicitud.codigoEntrenamiento, entrenamiento.codigoEntrenamiento))
+    .innerJoin(usuario, eq(usuario.email, solicitud.email))
+    .where(
+      and(
+        eq(usuarioEntrenamiento.email, emailOrganizador),
+        eq(usuarioEntrenamiento.rol, "organizador"),
+        eq(solicitud.estado, "pendiente"),
+        eq(entrenamiento.estado, "abierto"),
         sql`${entrenamiento.fechaInicio} > NOW() + INTERVAL '2 hours'`
       )
     )
+    .orderBy(asc(entrenamiento.fechaInicio));
 
-    .orderBy(
-      asc(entrenamiento.fechaInicio)
-    );
+  const rows = pagina !== undefined
+    ? await (query as any).limit(limite).offset(offset!)
+    : await query;
+
+  return {
+    data: rows,
+    total,
+    pagina: pagina ?? 1,
+    totalPaginas: Math.ceil(total / (pagina !== undefined ? limite : Math.max(total, 1))),
+  };
 }
 
 export async function rechazarSolicitudesExpiradas() {
