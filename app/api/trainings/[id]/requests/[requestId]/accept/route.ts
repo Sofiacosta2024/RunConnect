@@ -5,6 +5,9 @@ import { getAuth } from "@/lib/auth";
 import * as solicitudService from "@/services/solicitudService";
 import { revalidatePath } from "next/cache";
 
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; requestId: string }> }) {
+
+}
 
 export async function PATCH(
   request: Request,
