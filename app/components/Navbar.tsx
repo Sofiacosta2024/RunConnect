@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [session, setSession] = useState<null | { user: { email?: string; name?: string } }>(null);
   const [loading, setLoading] = useState(true);
   const [noLeidas, setNoLeidas] = useState(0);
@@ -78,15 +80,15 @@ export default function Navbar() {
       </div>
 
       <ul className="rc-nav-links">
-        <li><Link href="/">Muro</Link></li>
-        <li><Link href="/entrenamientos">Entrenamientos</Link></li>
-        <li> <Link href="/mis-entrenamientos">Mis entrenamientos</Link></li>
-        <li> <Link href="/solicitudes">Solicitudes</Link></li>
+        <li><Link href="/" className={pathname === "/" ? "active" : ""}>Muro</Link></li>
+        <li><Link href="/entrenamientos" className={pathname.startsWith("/entrenamientos") ? "active" : ""}>Entrenamientos</Link></li>
+        <li> <Link href="/mis-entrenamientos" className={pathname.startsWith("/mis-entrenamientos") ? "active" : ""}>Mis entrenamientos</Link></li>
+        <li> <Link href="/solicitudes" className={pathname.startsWith("/solicitudes") ? "active" : ""}>Solicitudes</Link></li>
         {!loading && (
           session ? (
             <>
               <li style={{ position: "relative" }}>
-                <Link href="/notificaciones" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Link href="/notificaciones" className={pathname.startsWith("/notificaciones") ? "active" : ""} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   🔔
                   {noLeidas > 0 && (
                     <span style={{
@@ -109,9 +111,9 @@ export default function Navbar() {
                   )}
                 </Link>
               </li>
-              <li><Link href="/perfil">Mi perfil</Link></li>
+              <li><Link href="/perfil" className={pathname.startsWith("/perfil") ? "active" : ""}>Mi perfil</Link></li>
               {esAdmin && (
-                <li><Link href="/admin" style={{ color: "var(--rc-accent)" }}>Admin</Link></li>
+                <li><Link href="/admin" className={pathname.startsWith("/admin") ? "active" : ""} style={{ color: "var(--rc-accent)" }}>Admin</Link></li>
               )}
               <li>
                 <button type="button" onClick={handleLogout}>

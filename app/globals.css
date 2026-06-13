@@ -218,7 +218,8 @@
   transition: color 0.2s;
 }
 
-.rc-nav-links a:hover {
+.rc-nav-links a:hover,
+.rc-nav-links a.active {
   color: var(--rc-text);
 }
 
