@@ -11,13 +11,15 @@ type Props = {
 const deportes = [
   { value: "running", label: "Running" },
   { value: "cycling", label: "Cycling" },
-];
+] as const;
 
 const niveles = [
   { value: "principiante", label: "Principiante" },
   { value: "intermedio", label: "Intermedio" },
   { value: "avanzado", label: "Avanzado" },
-];
+] as const;
+
+type FieldErrors = Partial<Record<string, string>>;
 
 type Coords = { lat: number; lng: number; display: string };
 
@@ -54,8 +56,59 @@ export default function CrearEntrenamientoModal({
   const [errorGeo, setErrorGeo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   if (!open) return null;
+
+  function validarFormulario(): boolean {
+    const errores: FieldErrors = {};
+
+    if (!fecha || !hora) {
+      errores.fecha = "Completá la fecha y hora del entrenamiento.";
+    } else {
+      const fechaHora = new Date(`${fecha}T${hora}:00`);
+      const ahora = new Date();
+      const diffMs = fechaHora.getTime() - ahora.getTime();
+      if (diffMs < 30 * 60 * 1000) {
+        errores.fecha = "La fecha debe ser al menos 30 minutos en el futuro.";
+      }
+    }
+
+    if (!duracion || isNaN(Number(duracion)) || Number(duracion) <= 0) {
+      errores.duracion = "La duración debe ser un número positivo.";
+    } else if (Number(duracion) > 360) {
+      errores.duracion = "La duración no puede superar 6 horas.";
+    }
+
+    if (distancia) {
+      const distNum = Number(distancia);
+      if (isNaN(distNum) || distNum <= 0) {
+        errores.distancia = "La distancia debe ser un número positivo.";
+      }
+    }
+
+    if (ritmo && /-\d/.test(ritmo)) {
+      errores.ritmo = "El ritmo objetivo no debe contener valores negativos.";
+    }
+
+    if (cupo) {
+      const cupoNum = Number(cupo);
+      if (isNaN(cupoNum) || !Number.isInteger(cupoNum) || cupoNum < 2) {
+        errores.cupo = "El cupo máximo debe ser un número entero al menos 2.";
+      } else if (cupoNum > 2147483647) {
+        errores.cupo = "El cupo máximo es demasiado grande.";
+      }
+    }
+
+    if (!ubicacion) {
+      errores.ubicacion = "Indicá el punto de encuentro.";
+    } else if (!coords) {
+      errores.ubicacion = "Esperá a que se verifique la dirección o corregila.";
+    }
+
+    setFieldErrors(errores);
+    return Object.keys(errores).length === 0;
+  }
 
   async function handleUbicacionBlur() {
     if (!ubicacion.trim()) return;
@@ -79,47 +132,9 @@ export default function CrearEntrenamientoModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setFieldErrors({});
 
-    if (!fecha || !hora) {
-      setError("Completá la fecha y hora del entrenamiento.");
-      return;
-    }
-
-    const yearMatch = fecha.match(/^(\d{4})-/);
-    if (!yearMatch) {
-      setError("La fecha debe tener un año de 4 dígitos.");
-      return;
-    }
-
-    if (distancia && Number(distancia) <= 0) {
-      setError("La distancia debe ser mayor a 0.");
-      return;
-    }
-
-    if (ritmo && /-\d/.test(ritmo)) {
-      setError("El ritmo objetivo no debe contener valores negativos.");
-      return;
-    }
-
-    if (cupo && Number(cupo) < 2) {
-      setError("El cupo máximo debe ser al menos 2.");
-      return;
-    }
-
-    if (cupo && Number(cupo) > 2147483647) {
-      setError("El cupo máximo es demasiado grande.");
-      return;
-    }
-
-    if (!ubicacion) {
-      setError("Indicá el punto de encuentro.");
-      return;
-    }
-
-    if (!coords) {
-      setError("Esperá a que se verifique la dirección o corregila.");
-      return;
-    }
+    if (!validarFormulario()) return;
 
     setEnviando(true);
 
@@ -138,7 +153,7 @@ export default function CrearEntrenamientoModal({
         fechaInicio,
         fechaFin,
         nivel,
-        puntoEncuentro: { lat: coords.lat, lng: coords.lng },
+        puntoEncuentro: { lat: coords!.lat, lng: coords!.lng },
         estado: "abierto",
       };
 
@@ -222,8 +237,9 @@ export default function CrearEntrenamientoModal({
                 className="rc-field-input"
                 type="date"
                 value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
+                onChange={(e) => { setFecha(e.target.value); setFieldErrors((prev) => ({ ...prev, fecha: "" })); }}
               />
+              {fieldErrors.fecha && <p className="rc-field-error">{fieldErrors.fecha}</p>}
             </div>
 
             <div className="rc-field">
@@ -249,6 +265,7 @@ export default function CrearEntrenamientoModal({
                 setUbicacion(e.target.value);
                 setCoords(null);
                 setErrorGeo("");
+                setFieldErrors((prev) => ({ ...prev, ubicacion: "" }));
               }}
               onBlur={handleUbicacionBlur}
             />
@@ -263,6 +280,9 @@ export default function CrearEntrenamientoModal({
                 ✓ {coords.display}
               </p>
             )}
+            {fieldErrors.ubicacion && !errorGeo && (
+              <p className="rc-field-error">{fieldErrors.ubicacion}</p>
+            )}
           </div>
 
           <div className="rc-field-row">
@@ -274,8 +294,9 @@ export default function CrearEntrenamientoModal({
                 type="number"
                 min="1"
                 value={duracion}
-                onChange={(e) => setDuracion(e.target.value)}
+                onChange={(e) => { setDuracion(e.target.value); setFieldErrors((prev) => ({ ...prev, duracion: "" })); }}
               />
+              {fieldErrors.duracion && <p className="rc-field-error">{fieldErrors.duracion}</p>}
             </div>
 
             <div className="rc-field">
@@ -287,8 +308,9 @@ export default function CrearEntrenamientoModal({
                 step="0.1"
                 placeholder="Opcional"
                 value={distancia}
-                onChange={(e) => setDistancia(e.target.value)}
+                onChange={(e) => { setDistancia(e.target.value); setFieldErrors((prev) => ({ ...prev, distancia: "" })); }}
               />
+              {fieldErrors.distancia && <p className="rc-field-error">{fieldErrors.distancia}</p>}
             </div>
           </div>
 
@@ -300,8 +322,9 @@ export default function CrearEntrenamientoModal({
                 type="text"
                 placeholder="Ej: 5:00 /km"
                 value={ritmo}
-                onChange={(e) => setRitmo(e.target.value)}
+                onChange={(e) => { setRitmo(e.target.value); setFieldErrors((prev) => ({ ...prev, ritmo: "" })); }}
               />
+              {fieldErrors.ritmo && <p className="rc-field-error">{fieldErrors.ritmo}</p>}
             </div>
 
             <div className="rc-field">
@@ -313,8 +336,9 @@ export default function CrearEntrenamientoModal({
                 max="2147483647"
                 placeholder="Opcional"
                 value={cupo}
-                onChange={(e) => setCupo(e.target.value)}
+                onChange={(e) => { setCupo(e.target.value); setFieldErrors((prev) => ({ ...prev, cupo: "" })); }}
               />
+              {fieldErrors.cupo && <p className="rc-field-error">{fieldErrors.cupo}</p>}
             </div>
           </div>
 

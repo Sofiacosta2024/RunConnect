@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { EntrenamientoListItem } from "@/services/entrenamientoService";
 
-const niveles = ["principiante", "intermedio", "avanzado"];
-const estados = ["abierto", "cerrado", "cancelado", "finalizado"];
-const deportes = ["running", "cycling"];
+const niveles = ["principiante", "intermedio", "avanzado"] as const;
+const estados = ["abierto", "cerrado", "cancelado", "finalizado"] as const;
+const deportes = ["running", "cycling"] as const;
+
+type FieldErrors = Partial<Record<string, string>>;
 
 export default function AdminEditForm({
   entrenamiento,
@@ -18,6 +20,7 @@ export default function AdminEditForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [form, setForm] = useState({
     codigoDeporte: entrenamiento.codigoDeporte,
@@ -34,26 +37,113 @@ export default function AdminEditForm({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setFieldErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
+
+  function validarFormulario(): boolean {
+    const errores: FieldErrors = {};
+
+    if (!form.codigoDeporte) {
+      errores.codigoDeporte = "El deporte es obligatorio.";
+    }
+
+    if (!form.nivel) {
+      errores.nivel = "El nivel es obligatorio.";
+    }
+
+    if (!form.fechaInicio) {
+      errores.fechaInicio = "La fecha de inicio es obligatoria.";
+    }
+
+    if (!form.fechaFin) {
+      errores.fechaFin = "La fecha de fin es obligatoria.";
+    }
+
+    if (form.fechaInicio && form.fechaFin) {
+      const inicio = new Date(form.fechaInicio);
+      const fin = new Date(form.fechaFin);
+      if (isNaN(inicio.getTime())) {
+        errores.fechaInicio = "Fecha de inicio inválida.";
+      }
+      if (isNaN(fin.getTime())) {
+        errores.fechaFin = "Fecha de fin inválida.";
+      }
+      if (!isNaN(inicio.getTime()) && !isNaN(fin.getTime()) && fin <= inicio) {
+        errores.fechaFin = "La fecha de fin debe ser posterior a la de inicio.";
+      }
+    }
+
+    if (form.distanciaEstimada !== "") {
+      const distNum = Number(form.distanciaEstimada);
+      if (isNaN(distNum) || distNum <= 0) {
+        errores.distanciaEstimada = "Debe ser un número positivo.";
+      }
+    }
+
+    if (form.ritmoObjetivo && /-\d/.test(form.ritmoObjetivo)) {
+      errores.ritmoObjetivo = "No debe contener valores negativos.";
+    }
+
+    if (form.cupoMaximo !== "") {
+      const cupoNum = Number(form.cupoMaximo);
+      if (isNaN(cupoNum) || !Number.isInteger(cupoNum)) {
+        errores.cupoMaximo = "Debe ser un número entero.";
+      } else if (cupoNum < 2) {
+        errores.cupoMaximo = "Debe ser al menos 2.";
+      } else if (cupoNum > 2147483647) {
+        errores.cupoMaximo = "Valor demasiado grande.";
+      }
+    }
+
+    setFieldErrors(errores);
+    return Object.keys(errores).length === 0;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     setSuccess(false);
+    setFieldErrors({});
+
+    if (!validarFormulario()) {
+      setSaving(false);
+      return;
+    }
 
     try {
+      const inicioDate = new Date(form.fechaInicio);
+      const offsetMinutos = -inicioDate.getTimezoneOffset();
+      const signo = offsetMinutos >= 0 ? "+" : "-";
+      const absOffset = Math.abs(offsetMinutos);
+      const tz = `${signo}${String(Math.floor(absOffset / 60)).padStart(2, "0")}:${String(absOffset % 60).padStart(2, "0")}`;
+      const fechaInicio = `${form.fechaInicio}:00${tz}`;
+
+      const finDate = new Date(form.fechaFin);
+      const offsetMinutosFin = -finDate.getTimezoneOffset();
+      const signoFin = offsetMinutosFin >= 0 ? "+" : "-";
+      const absOffsetFin = Math.abs(offsetMinutosFin);
+      const tzFin = `${signoFin}${String(Math.floor(absOffsetFin / 60)).padStart(2, "0")}:${String(absOffsetFin % 60).padStart(2, "0")}`;
+      const fechaFin = `${form.fechaFin}:00${tzFin}`;
+
       const body: Record<string, unknown> = {
         codigoDeporte: form.codigoDeporte,
         nivel: form.nivel,
         estado: form.estado,
-        fechaInicio: form.fechaInicio,
-        fechaFin: form.fechaFin,
+        fechaInicio,
+        fechaFin,
         puntoEncuentro: entrenamiento.puntoEncuentro ?? "",
-        distanciaEstimada: form.distanciaEstimada === "" ? null : Number(form.distanciaEstimada),
-        ritmoObjetivo: form.ritmoObjetivo === "" ? null : form.ritmoObjetivo,
-        cupoMaximo: form.cupoMaximo === "" ? null : Number(form.cupoMaximo),
       };
+
+      if (form.distanciaEstimada !== "") {
+        body.distanciaEstimada = Number(form.distanciaEstimada);
+      }
+      if (form.ritmoObjetivo) {
+        body.ritmoObjetivo = form.ritmoObjetivo;
+      }
+      if (form.cupoMaximo !== "") {
+        body.cupoMaximo = Number(form.cupoMaximo);
+      }
 
       const res = await fetch(`/api/admin/entrenamientos/${entrenamiento.codigoEntrenamiento}`, {
         method: "PUT",
@@ -74,6 +164,10 @@ export default function AdminEditForm({
       setSaving(false);
     }
   };
+
+  function renderFieldError(name: string) {
+    return fieldErrors[name] ? <p className="rc-field-error">{fieldErrors[name]}</p> : null;
+  }
 
   return (
     <form
@@ -101,6 +195,7 @@ export default function AdminEditForm({
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
+        {renderFieldError("codigoDeporte")}
       </div>
 
       <div className="rc-field">
@@ -115,6 +210,7 @@ export default function AdminEditForm({
             <option key={n} value={n}>{n}</option>
           ))}
         </select>
+        {renderFieldError("nivel")}
       </div>
 
       <div className="rc-field">
@@ -141,6 +237,7 @@ export default function AdminEditForm({
             onChange={handleChange}
             className="rc-field-input"
           />
+          {renderFieldError("fechaInicio")}
         </div>
         <div className="rc-field">
           <label className="rc-field-label">Fecha fin</label>
@@ -151,6 +248,7 @@ export default function AdminEditForm({
             onChange={handleChange}
             className="rc-field-input"
           />
+          {renderFieldError("fechaFin")}
         </div>
       </div>
 
@@ -166,6 +264,7 @@ export default function AdminEditForm({
             step="0.01"
             min="0"
           />
+          {renderFieldError("distanciaEstimada")}
         </div>
         <div className="rc-field">
           <label className="rc-field-label">Ritmo objetivo</label>
@@ -177,6 +276,7 @@ export default function AdminEditForm({
             className="rc-field-input"
             placeholder="5:00 /km"
           />
+          {renderFieldError("ritmoObjetivo")}
         </div>
       </div>
 
@@ -188,11 +288,13 @@ export default function AdminEditForm({
           value={form.cupoMaximo}
           onChange={handleChange}
           className="rc-field-input"
-          min="0"
+          min="2"
         />
+        {renderFieldError("cupoMaximo")}
       </div>
 
       {error && <div className="rc-form-error">{error}</div>}
+      {fieldErrors.general && <div className="rc-form-error">{fieldErrors.general}</div>}
       {success && (
         <div className="rc-success-box">
           Entrenamiento actualizado correctamente.

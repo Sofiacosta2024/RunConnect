@@ -104,8 +104,7 @@ export async function POST(request: Request) {
           : Number(body.cupoMaximo),
     };
 
-    // validaciones
-    if (dto.distanciaEstimada <= 0){
+    if (dto.distanciaEstimada != null && dto.distanciaEstimada <= 0) {
       throw new EntrenamientoValidationError("distanciaEstimada debe ser un numero positivo.");
     }
 
