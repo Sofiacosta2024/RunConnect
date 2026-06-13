@@ -68,16 +68,20 @@ const [entrenamientos, participantes] = codigosEntrenamiento.length > 0
         ),
     ])
   : [[], []];
+  // logs
+console.log("Datos de entrenamiento:", entrenamientos);
+console.log("Participantes encontrados en BD:", participantes);
 
-  const cupoMap = Object.fromEntries(
-    entrenamientos.map((e) => [
+const cupoMap = Object.fromEntries(
+  entrenamientos.map((e) => {
+    const ocupados = participantes.filter((p) => p.codigoEntrenamiento === e.codigoEntrenamiento).length;
+    console.log(`Entrenamiento ${e.codigoEntrenamiento}: Máximo ${e.cupoMaximo}, Ocupados ${ocupados}`);
+    return [
       e.codigoEntrenamiento,
-      {
-        cupoMaximo: e.cupoMaximo,
-        cupoOcupado: participantes.filter((p) => p.codigoEntrenamiento === e.codigoEntrenamiento).length,
-      },
-    ])
-  );
+      { cupoMaximo: e.cupoMaximo, cupoOcupado: ocupados }
+    ];
+  })
+);
 
   return (
     <div className="rc-root">
