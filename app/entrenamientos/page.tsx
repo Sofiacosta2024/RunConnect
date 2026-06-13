@@ -118,6 +118,10 @@ export default function EntrenamientosPage() {
 
   const hayFiltros = deporte || nivel || fecha;
 
+    const entrenamientosVisibles = entrenamientos.filter(
+        (e) => e.estado !== "finalizado"
+    );
+
   return (
     <div className="rc-root">
       <Navbar />
@@ -217,7 +221,7 @@ export default function EntrenamientosPage() {
 
           {error && <div className="entrenamientos-error">{error}</div>}
 
-          {!loading && !error && entrenamientos.length === 0 && (
+          {!loading && !error && entrenamientosVisibles.length === 0 && (
             <div className="entrenamientos-vacio">
               <div className="entrenamientos-vacio-icono">🏋️</div>
               <p className="entrenamientos-vacio-texto">
@@ -235,7 +239,7 @@ export default function EntrenamientosPage() {
 
           {!loading &&
             !error &&
-            entrenamientos.map((e) => (
+            entrenamientosVisibles.map((e) => (
               <EntrenamientoCard key={e.codigoEntrenamiento} entrenamiento={e} mostrarBotonSolicitud = { emailUsuario !== "" && emailUsuario !== e.emailOrganizador && !e.esParticipante } esOrganizador={emailUsuario === e.emailOrganizador} esParticipante={e.esParticipante} />
             ))}
         </div>
