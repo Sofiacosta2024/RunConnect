@@ -80,6 +80,9 @@ export async function POST(request: Request) {
     const fechaFin = body.fechaFin ?? body.fecha_fin;
     const nivel = body.nivel ?? body.codigoNivel ?? body.codigo_nivel;
 
+
+
+
     const dto: EntrenamientoCreateDto = {
       codigoDeporte: String(body.codigoDeporte ?? ""),
       fechaInicio: fechaInicio === undefined || fechaInicio === null ? "" : String(fechaInicio),
@@ -100,6 +103,11 @@ export async function POST(request: Request) {
           ? null
           : Number(body.cupoMaximo),
     };
+
+    // validaciones
+    if (dto.distanciaEstimada <= 0){
+      throw new EntrenamientoValidationError("distanciaEstimada debe ser un numero positivo.");
+    }
 
     if (dto.estado.trim().toLowerCase() !== "abierto") {
       throw new EntrenamientoValidationError(

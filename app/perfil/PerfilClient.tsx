@@ -92,7 +92,7 @@ export default function PerfilClient({ perfil }: Props) {
             )}
             {perfil.ubicacionDisplay && (
               <span style={{ fontSize: "0.75rem", padding: "4px 12px", borderRadius: 999, background: "var(--rc-surface)", border: "1px solid var(--rc-border)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                📍 {perfil.ubicacionDisplay}
+                {perfil.ubicacionDisplay}
               </span>
             )}
             {!perfil.codigoDeporte && !perfil.ubicacion && (
@@ -197,7 +197,7 @@ export default function PerfilClient({ perfil }: Props) {
               </p>
               <p style={{ margin: 0 }}>
                 <span style={{ color: "var(--rc-muted)" }}>Ubicación: </span>
-                📍 {perfil.ubicacionDisplay}
+                 {perfil.ubicacionDisplay}
               </p>
               {exito && (
                 <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "green" }}>

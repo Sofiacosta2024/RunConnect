@@ -1,7 +1,6 @@
 import "server-only";
 
 import { asc, and, eq, count,sql} from "drizzle-orm";
-import { enviarMail } from "@/services/mailService";
 import { crearNotificacion } from "@/services/notificacionService";
 import { db } from "@/lib/db";
 import {
@@ -131,13 +130,6 @@ const participantes = await db
       fecha: ahora,
     })
     .returning();
-
-    try { 
-    await enviarMail(
-   entrenamientoInfo[0].emailOrganizador,
-  "Nueva solicitud de participación",
-  `${email} solicitó participar en uno de tus entrenamientos.`
-); } catch (e) { console.error("Error enviando mail:", e); }
 
     try {
       const solicitante = await db
@@ -363,14 +355,6 @@ export async function aceptarSolicitud(
         rol: "participante",
       });
 
-      try{
-      await enviarMail(
-        sol.email,
-        "Solicitud aceptada",
-        "Tu solicitud fue aceptada. Ya formás parte del entrenamiento."
-      );}
-      catch (e) { console.error("Error enviando mail:", e); }
-
       try {
         await crearNotificacion(
           sol.email,
@@ -448,13 +432,6 @@ export async function rechazarSolicitud(
         )
       );
 
-      try{
-      await enviarMail(
-        sol.email,
-        "Solicitud rechazada",
-        "El organizador rechazó tu solicitud de participación."
-      );}
-      catch (e) { console.error("Error enviando mail:", e); }
 
       try {
           await crearNotificacion(
@@ -559,6 +536,7 @@ export async function rechazarSolicitudesExpiradas() {
   const solicitudes = await db
     .select({
       codigoSolicitud: solicitud.codigoSolicitud,
+      codigoEntrenamiento: solicitud.codigoEntrenamiento,
       email: solicitud.email,
     })
     .from(solicitud)
@@ -590,12 +568,17 @@ export async function rechazarSolicitudesExpiradas() {
   `);
 
   for (const s of solicitudes) {
-    void enviarMail(
-      s.email,
-      "Solicitud vencida",
-      "Tu solicitud fue rechazada automáticamente porque el entrenamiento comienza en menos de 2 horas."
-    );
-  }
+      try {
+        await crearNotificacion(
+          s.email,
+          "solicitud_rechazada",
+          "Tu solicitud para participar en el entrenamiento fue rechazada porque el entrenamiento está próximo a comenzar.",
+          s.codigoEntrenamiento
+        );
+      } catch (e) {
+        console.error("Error creando notificación:", e);
+      }
+    }
 
   return solicitudes.length;
 }
