@@ -85,13 +85,15 @@ export default async function AdminEntrenamientosPage(props: { searchParams: Pro
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
                 <span style={{ fontWeight: 600, fontSize: 15 }}>#{e.codigoEntrenamiento}</span>
-                <span style={{ color: "var(--rc-muted)", marginLeft: 10, fontSize: 14 }}>{e.codigoDeporte}</span>
-                <span style={{ color: "var(--rc-muted)", marginLeft: 10, fontSize: 13 }}>{e.nivel}</span>
+                <span style={{ color: "var(--rc-muted)", fontSize: 14 }}>{e.codigoDeporte}</span>
+                <span style={{ color: "var(--rc-muted)", fontSize: 13 }}>{e.nivel}</span>
                 <span style={{
                   fontSize: 11,
                   fontWeight: 700,
@@ -100,7 +102,6 @@ export default async function AdminEntrenamientosPage(props: { searchParams: Pro
                   padding: "3px 10px",
                   borderRadius: 100,
                   border: "1px solid",
-                  marginLeft: 10,
                   borderColor: e.estado === "abierto" ? "var(--rc-teal)" : "var(--rc-muted)",
                   color: e.estado === "abierto" ? "var(--rc-teal)" : "var(--rc-muted)",
                 }}>

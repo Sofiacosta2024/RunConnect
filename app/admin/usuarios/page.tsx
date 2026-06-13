@@ -68,10 +68,12 @@ export default async function AdminUsuariosPage(props: { searchParams: Promise<{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
               opacity: u.suspendido ? 0.6 : 1,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <div
                 style={{
                   width: 40,

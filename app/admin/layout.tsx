@@ -15,14 +15,7 @@ export default async function AdminLayout({
   return (
     <div className="rc-root" style={{ display: "flex" }}>
       <AdminHeader />
-      <div
-        style={{
-          flex: 1,
-          marginLeft: 240,
-          minHeight: "100vh",
-          padding: "32px 40px",
-        }}
-      >
+      <div className="rc-admin-content">
         {children}
       </div>
     </div>

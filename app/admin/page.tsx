@@ -96,6 +96,8 @@ export default async function AdminDashboard() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
             <div>
