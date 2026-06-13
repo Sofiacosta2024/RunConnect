@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/reject-expired-requests",
-      "schedule": "*/15 * * * *"
-    }
-  ]
-}
