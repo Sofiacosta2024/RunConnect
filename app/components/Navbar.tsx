@@ -40,10 +40,7 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
-      setEsAdmin(false);
-      return;
-    }
+    if (!session) return;
     fetch("/api/user-role", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setEsAdmin(data.rol === "admin"))
@@ -84,51 +81,50 @@ export default function Navbar() {
         <li><Link href="/entrenamientos" className={pathname.startsWith("/entrenamientos") ? "active" : ""}>Entrenamientos</Link></li>
         <li> <Link href="/mis-entrenamientos" className={pathname.startsWith("/mis-entrenamientos") ? "active" : ""}>Mis entrenamientos</Link></li>
         <li> <Link href="/solicitudes" className={pathname.startsWith("/solicitudes") ? "active" : ""}>Solicitudes</Link></li>
-        {!loading && (
-          session ? (
-            <>
-              <li style={{ position: "relative" }}>
-                <Link href="/notificaciones" className={pathname.startsWith("/notificaciones") ? "active" : ""} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  🔔
-                  {noLeidas > 0 && (
-                    <span style={{
-                      background: "#FF3C3C",
-                      color: "#fff",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      borderRadius: "50%",
-                      width: 18,
-                      height: 18,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      position: "absolute",
-                      top: -6,
-                      right: -10,
-                    }}>
-                      {noLeidas > 9 ? "9+" : noLeidas}
-                    </span>
-                  )}
-                </Link>
-              </li>
-              <li><Link href="/perfil" className={pathname.startsWith("/perfil") ? "active" : ""}>Mi perfil</Link></li>
-              {esAdmin && (
-                <li><Link href="/admin" className={pathname.startsWith("/admin") ? "active" : ""} style={{ color: "var(--rc-accent)" }}>Admin</Link></li>
-              )}
-              <li>
-                <button type="button" onClick={handleLogout}>
-                  Cerrar sesión
-                </button>
-              </li>
-            </>
-          ) : (
-            <li>
+        <li className={`rc-nav-auth-group ${loading ? "rc-nav-loading" : ""}`}>
+          {!loading && (
+            session ? (
+              <ul className="rc-nav-auth-inner">
+                <li style={{ position: "relative" }}>
+                  <Link href="/notificaciones" className={pathname.startsWith("/notificaciones") ? "active" : ""} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    🔔
+                    {noLeidas > 0 && (
+                      <span style={{
+                        background: "#FF3C3C",
+                        color: "#fff",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        borderRadius: "50%",
+                        width: 18,
+                        height: 18,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        position: "absolute",
+                        top: -6,
+                        right: -10,
+                      }}>
+                        {noLeidas > 9 ? "9+" : noLeidas}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+                <li><Link href="/perfil" className={pathname.startsWith("/perfil") ? "active" : ""}>Mi perfil</Link></li>
+                {esAdmin && (
+                  <li><Link href="/admin" className={pathname.startsWith("/admin") ? "active" : ""} style={{ color: "var(--rc-accent)" }}>Admin</Link></li>
+                )}
+                <li>
+                  <button type="button" onClick={handleLogout}>
+                    Cerrar sesión
+                  </button>
+                </li>
+              </ul>
+            ) : (
               <Link className="rc-nav-button" href="/login">
                 Iniciar sesión
               </Link>
-            </li>
-          )
-        )}     
+            )
+          )}     </li>
      </ul>
     </nav>
   );
