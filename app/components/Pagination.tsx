@@ -14,9 +14,11 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [mounted, setMounted] = useState(false);
   const [esMobile, setEsMobile] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const mq = window.matchMedia("(max-width: 768px)");
     setEsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setEsMobile(e.matches);
@@ -24,7 +26,7 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  if (totalPaginas <= 1) return null;
+  if (!mounted || totalPaginas <= 1) return null;
 
   function irA(p: number) {
     if (p < 1 || p > totalPaginas) return;
@@ -57,7 +59,7 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
     return paginas;
   }
 
-  const mobileBtnStyle = esMobile ? { padding: "8px 10px", fontSize: 12 } : { padding: "8px 14px", fontSize: 13 };
+  const mobileBtnStyle = esMobile ? { padding: "8px 12px", fontSize: 14 } : { padding: "8px 14px", fontSize: 13 };
 
   return (
     <div
@@ -65,10 +67,8 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: esMobile ? 4 : 6,
+        gap: esMobile ? 8 : 6,
         padding: "24px 0",
-        overflowX: "auto",
-        flexWrap: "nowrap",
       }}
     >
       <button
@@ -99,14 +99,14 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
             key={p}
             onClick={() => irA(p)}
             style={{
-              width: esMobile ? 32 : 36,
-              height: esMobile ? 32 : 36,
+              width: esMobile ? 40 : 36,
+              height: esMobile ? 40 : 36,
               borderRadius: 8,
               border: p === pagina ? "none" : "1px solid var(--rc-border)",
               background: p === pagina ? "var(--rc-grad)" : "var(--rc-card)",
               color: p === pagina ? "#fff" : "var(--rc-text)",
               cursor: "pointer",
-              fontSize: esMobile ? 12 : 14,
+              fontSize: esMobile ? 14 : 14,
               fontWeight: p === pagina ? 700 : 500,
               fontFamily: "'DM Sans', sans-serif",
               flexShrink: 0,
