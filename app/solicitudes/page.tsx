@@ -6,7 +6,7 @@ import SolicitudCard from "../components/Solicitudes/SolicitudCard";
 import Pagination from "../components/Pagination";
 
 import { getAuth } from "@/lib/auth";
-import { getSolicitudesPendientesDelOrganizador } from "@/services/solicitudService";
+import { getSolicitudesPendientesDelOrganizador, getMisSolicitudes } from "@/services/solicitudService";
 import { db } from "@/lib/db";
 import { entrenamiento, usuarioEntrenamiento } from "@/db/schema";
 import { inArray } from "drizzle-orm";
@@ -28,23 +28,38 @@ type SolicitudRow = {
   cupo: number | null;
 };
 
-export default async function SolicitudesPage(props: { searchParams: Promise<{ pagina?: string }> }) {
+export default async function SolicitudesPage(props: { searchParams: Promise<{ pagina?: string; paginaMis?: string }> }) {
   const auth = getAuth();
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.email) redirect("/login");
 
-  const { pagina: rawPagina } = await props.searchParams;
+  const { pagina: rawPagina, paginaMis: rawPaginaMis } = await props.searchParams;
   const pagina = Math.max(1, Number(rawPagina) || 1);
+  const paginaMis = Math.max(1, Number(rawPaginaMis) || 1);
 
-  const result = await getSolicitudesPendientesDelOrganizador(
+  const [ result, misResult,] = await Promise.all([
+  getSolicitudesPendientesDelOrganizador(
     session.user.email,
     pagina,
     LIMITE
-  );
+  ),
+  getMisSolicitudes(
+    session.user.email,
+    paginaMis,
+    LIMITE
+  ),
+]);
+
 
   const solicitudes: SolicitudRow[] = (result as any).data ?? [];
   const total: number = (result as any).total ?? 0;
   const totalPaginas: number = (result as any).totalPaginas ?? 1;
+
+  const misSolicitudes = (misResult as any).data ?? [];
+
+const totalMis = (misResult as any).total ?? 0;
+
+const totalPaginasMis = (misResult as any).totalPaginas ?? 1;
 
   const codigosEntrenamiento: number[] = [...new Set(solicitudes.map((s) => s.codigoEntrenamiento))];
 
@@ -114,9 +129,92 @@ export default async function SolicitudesPage(props: { searchParams: Promise<{ p
                 />
               ))}
             </div>
-            <Pagination pagina={pagina} totalPaginas={totalPaginas} />
+            <Pagination pagina={pagina} totalPaginas={totalPaginas} parametro = "pagina" />
           </>
+
+          
         )}
+
+        <hr
+          style={{
+            margin: "2rem 0",
+            border: "none",
+            borderTop: "1px solid #ddd",
+          }}
+        />
+
+        <div>
+          <h2
+            style={{
+              fontSize: "1.3rem",
+              fontWeight: 700,
+              marginBottom: "1rem",
+            }}
+          >
+            Mis solicitudes
+          </h2>
+
+          {misSolicitudes.length === 0 ? (
+              <div
+                className="rc-card"
+                style={{
+                  padding: "1rem",
+                  textAlign: "center",
+                }}
+              >
+                No enviaste solicitudes todavía.
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                  }}
+                >
+                  {misSolicitudes.map((s: any) => (
+                    <div
+                      key={s.codigoSolicitud}
+                      className="rc-card"
+                    >
+                      <h3 style={{ margin: 0 }}>
+                        {s.deporte}
+                      </h3>
+
+                      <p style={{ margin: "0.5rem 0" }}>
+                        {new Date(s.fechaInicio).toLocaleString("es-AR")}
+                      </p>
+
+                      <p style={{ margin: 0 }}>
+                        Nivel: {s.nivel}
+                      </p>
+
+                      <p
+                        style={{
+                          marginTop: "0.5rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Estado:{" "}
+                        {s.estado === "pendiente"
+                          ? "🟡 Pendiente"
+                          : s.estado === "aprobado"
+                          ? "🟢 Aprobada"
+                          : "🔴 Rechazada"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <Pagination
+                  pagina={paginaMis}
+                  totalPaginas={totalPaginasMis}
+                  parametro = "paginaMis"
+                />
+              </>
+            )}
+        </div>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

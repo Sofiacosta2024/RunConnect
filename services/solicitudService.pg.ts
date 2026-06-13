@@ -516,6 +516,77 @@ export async function getSolicitudesPendientesDelOrganizador(
   };
 }
 
+export async function getMisSolicitudes(
+  email: string,
+  pagina?: number,
+  limite: number = 10
+) {
+  await rechazarSolicitudesExpiradas();
+
+  const selectFields = {
+    codigoSolicitud: solicitud.codigoSolicitud,
+    estado: solicitud.estado,
+    fechaSolicitud: solicitud.fecha,
+    codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
+    deporte: entrenamiento.codigoDeporte,
+    fechaInicio: entrenamiento.fechaInicio,
+    nivel: entrenamiento.nivel,
+    cupo: entrenamiento.cupoMaximo,
+  };
+
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(solicitud)
+    .innerJoin(
+      entrenamiento,
+      eq(
+        solicitud.codigoEntrenamiento,
+        entrenamiento.codigoEntrenamiento
+      )
+    )
+    .where(eq(solicitud.email, email));
+
+  const total = Number(countRow?.total ?? 0);
+  const offset =
+    pagina !== undefined
+      ? (pagina - 1) * limite
+      : undefined;
+
+  let query = db
+    .select(selectFields)
+    .from(solicitud)
+    .innerJoin(
+      entrenamiento,
+      eq(
+        solicitud.codigoEntrenamiento,
+        entrenamiento.codigoEntrenamiento
+      )
+    )
+    .where(eq(solicitud.email, email))
+    .orderBy(
+      asc(entrenamiento.fechaInicio)
+    );
+
+  const rows =
+    pagina !== undefined
+      ? await (query as any)
+          .limit(limite)
+          .offset(offset!)
+      : await query;
+
+  return {
+    data: rows,
+    total,
+    pagina: pagina ?? 1,
+    totalPaginas: Math.ceil(
+      total /
+        (pagina !== undefined
+          ? limite
+          : Math.max(total, 1))
+    ),
+  };
+}
+
 export async function rechazarSolicitudesExpiradas() {
   const solicitudes = await db
     .select({

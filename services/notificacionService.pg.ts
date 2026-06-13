@@ -20,6 +20,30 @@ export async function crearNotificacion(
   mensaje: string,
   codigoEntrenamiento?: number | null
 ) {
+  const condiciones = [
+  eq(notificacion.email, email),
+  eq(notificacion.tipo, tipo),
+  eq(notificacion.mensaje, mensaje),
+];
+
+if (codigoEntrenamiento !== undefined && codigoEntrenamiento !== null) {
+  condiciones.push(
+    eq(notificacion.codigoEntrenamiento, codigoEntrenamiento)
+  );
+}
+
+const existente = await db
+  .select({
+    codigoNotificacion: notificacion.codigoNotificacion,
+  })
+  .from(notificacion)
+  .where(and(...condiciones))
+  .limit(1);
+
+  if (existente.length > 0) {
+    return existente[0];
+  }
+
   const [nueva] = await db
     .insert(notificacion)
     .values({
@@ -30,9 +54,9 @@ export async function crearNotificacion(
       leida: 0,
     })
     .returning();
+
   return nueva;
 }
-
 export async function getNotificaciones(email: string, pagina?: number, limite: number = 20) {
   const offset = pagina ? (pagina - 1) * limite : undefined;
 

@@ -40,3 +40,9 @@ export async function getSolicitudesPendientesDelOrganizador(
 export async function rechazarSolicitudesExpiradas() {
   return 0;
 }
+
+export async function getMisSolicitudes(
+  email: string
+) {
+  return [];
+}

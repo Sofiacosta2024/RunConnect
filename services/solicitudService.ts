@@ -24,5 +24,8 @@ export const getSolicitudesPendientesDelOrganizador =
   (email: string, pagina?: number, limite?: number) =>
     service.getSolicitudesPendientesDelOrganizador(email, pagina, limite);
 
+export const getMisSolicitudes =
+  service.getMisSolicitudes;
+
 export const rechazarSolicitudesExpiradas =
   service.rechazarSolicitudesExpiradas; 

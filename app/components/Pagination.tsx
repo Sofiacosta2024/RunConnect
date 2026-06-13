@@ -8,9 +8,10 @@ type Props = {
   totalPaginas: number;
   basePath?: string;
   onCambio?: (pagina: number) => void;
+  parametro?: string;
 };
 
-export default function Pagination({ pagina, totalPaginas, basePath, onCambio }: Props) {
+export default function Pagination({ pagina, totalPaginas, basePath, onCambio, parametro = "pagina", }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -34,7 +35,7 @@ export default function Pagination({ pagina, totalPaginas, basePath, onCambio }:
       onCambio(p);
     } else {
       const params = new URLSearchParams(searchParams.toString());
-      params.set("pagina", String(p));
+      params.set(parametro, String(p));
       router.push(`${basePath ?? pathname}?${params.toString()}`);
     }
   }
