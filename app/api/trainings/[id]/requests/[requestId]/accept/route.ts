@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 
 import { getAuth } from "@/lib/auth";
 import * as solicitudService from "@/services/solicitudService";
+import { revalidatePath } from "next/cache";
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; requestId: string }> }) {
+
+}
 
 export async function PATCH(
   request: Request,
@@ -31,11 +36,12 @@ export async function PATCH(
   const { requestId } = await params;
 
   try {
-    const resultado =
-      await solicitudService.aceptarSolicitud(
-        session.user.email,
-        Number(requestId)
-      );
+    const resultado = await solicitudService.aceptarSolicitud(
+      session.user.email,
+      Number(requestId)
+    );
+
+    revalidatePath("https://runconnect-eight.vercel.app/solicitudes"); 
 
     return NextResponse.json(resultado);
   } catch (error) {
