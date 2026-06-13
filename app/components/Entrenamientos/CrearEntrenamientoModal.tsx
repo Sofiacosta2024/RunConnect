@@ -98,8 +98,12 @@ export default function CrearEntrenamientoModal({
     setEnviando(true);
 
     try {
-      const fechaInicio = `${fecha}T${hora}:00`;
-      const inicioDate = new Date(fechaInicio);
+      const inicioDate = new Date(`${fecha}T${hora}:00`);
+      const offsetMinutos = -inicioDate.getTimezoneOffset();
+      const signo = offsetMinutos >= 0 ? "+" : "-";
+      const absOffset = Math.abs(offsetMinutos);
+      const tz = `${signo}${String(Math.floor(absOffset / 60)).padStart(2, "0")}:${String(absOffset % 60).padStart(2, "0")}`;
+      const fechaInicio = `${fecha}T${hora}:00${tz}`;
       const finDate = new Date(inicioDate.getTime() + Number(duracion) * 60000);
       const fechaFin = finDate.toISOString();
 
@@ -154,6 +158,7 @@ export default function CrearEntrenamientoModal({
             <div className="rc-field">
               <label className="rc-field-label">Deporte</label>
               <select
+                aria-label="Deporte"
                 className="rc-field-select"
                 value={deporte}
                 onChange={(e) => setDeporte(e.target.value)}
@@ -169,6 +174,7 @@ export default function CrearEntrenamientoModal({
             <div className="rc-field">
               <label className="rc-field-label">Nivel</label>
               <select
+                aria-label="Nivel"
                 className="rc-field-select"
                 value={nivel}
                 onChange={(e) => setNivel(e.target.value)}
@@ -186,6 +192,7 @@ export default function CrearEntrenamientoModal({
             <div className="rc-field">
               <label className="rc-field-label">Fecha</label>
               <input
+                aria-label="Fecha"
                 className="rc-field-input"
                 type="date"
                 value={fecha}
@@ -196,6 +203,7 @@ export default function CrearEntrenamientoModal({
             <div className="rc-field">
               <label className="rc-field-label">Hora</label>
               <input
+                aria-label="Hora"
                 className="rc-field-input"
                 type="time"
                 value={hora}
@@ -235,6 +243,7 @@ export default function CrearEntrenamientoModal({
             <div className="rc-field">
               <label className="rc-field-label">Duración (min)</label>
               <input
+                aria-label="Duración"
                 className="rc-field-input"
                 type="number"
                 min="1"
