@@ -10,6 +10,11 @@ export default function Navbar() {
   const [loading, setLoading] = useState(true);
   const [noLeidas, setNoLeidas] = useState(0);
   const [esAdmin, setEsAdmin] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,7 +130,63 @@ export default function Navbar() {
               </Link>
             )
           )}     </li>
-     </ul>
+      </ul>
+
+      <button
+        type="button"
+        className={`rc-hamburger ${mobileOpen ? "open" : ""}`}
+        onClick={() => setMobileOpen(!mobileOpen)}
+        aria-label="Menú de navegación"
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+
+      {mobileOpen && <div className="rc-mobile-overlay" onClick={() => setMobileOpen(false)} />}
+
+      <div className={`rc-mobile-menu ${mobileOpen ? "open" : ""}`}>
+        <div className="rc-mobile-menu-header">
+          <div className="rc-logo">
+            Run<span>Connect</span>
+          </div>
+        </div>
+        <div className="rc-mobile-menu-links">
+          <Link href="/" className={pathname === "/" ? "active" : ""}>Muro</Link>
+          <Link href="/entrenamientos" className={pathname.startsWith("/entrenamientos") ? "active" : ""}>Entrenamientos</Link>
+          <Link href="/mis-entrenamientos" className={pathname.startsWith("/mis-entrenamientos") ? "active" : ""}>Mis entrenamientos</Link>
+          <Link href="/solicitudes" className={pathname.startsWith("/solicitudes") ? "active" : ""}>Solicitudes</Link>
+
+          <div className="rc-mobile-divider" />
+
+          {!loading && (
+            session ? (
+              <>
+                <div className="rc-mobile-auth-links">
+                  <Link href="/notificaciones" className={pathname.startsWith("/notificaciones") ? "active" : ""}>
+                    🔔 Notificaciones
+                    {noLeidas > 0 && (
+                      <span className="rc-mobile-badge">{noLeidas > 9 ? "9+" : noLeidas}</span>
+                    )}
+                  </Link>
+                  <Link href="/perfil" className={pathname.startsWith("/perfil") ? "active" : ""}>Mi perfil</Link>
+                  {esAdmin && (
+                    <Link href="/admin" className={pathname.startsWith("/admin") ? "active" : ""} style={{ color: "var(--rc-accent)" }}>Admin</Link>
+                  )}
+                </div>
+                <div className="rc-mobile-divider" />
+                <button type="button" className="rc-mobile-logout" onClick={handleLogout}>
+                  Cerrar sesión
+                </button>
+              </>
+            ) : (
+              <Link className="rc-nav-button" href="/login" style={{ alignSelf: "flex-start" }}>
+                Iniciar sesión
+              </Link>
+            )
+          )}
+        </div>
+      </div>
     </nav>
   );
 }
