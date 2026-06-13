@@ -10,6 +10,7 @@ import { getSolicitudesPendientesDelOrganizador } from "@/services/solicitudServ
 import { db } from "@/lib/db";
 import { entrenamiento, usuarioEntrenamiento } from "@/db/schema";
 import { inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -48,18 +49,25 @@ export default async function SolicitudesPage(props: { searchParams: Promise<{ p
 
   const codigosEntrenamiento: number[] = [...new Set(solicitudes.map((s) => s.codigoEntrenamiento))];
 
-  const [entrenamientos, participantes] = codigosEntrenamiento.length > 0
-    ? await Promise.all([
-        db
-          .select({ codigoEntrenamiento: entrenamiento.codigoEntrenamiento, cupoMaximo: entrenamiento.cupoMaximo })
-          .from(entrenamiento)
-          .where(inArray(entrenamiento.codigoEntrenamiento, codigosEntrenamiento)),
-        db
-          .select({ codigoEntrenamiento: usuarioEntrenamiento.codigoEntrenamiento })
-          .from(usuarioEntrenamiento)
-          .where(inArray(usuarioEntrenamiento.codigoEntrenamiento, codigosEntrenamiento)),
-      ])
-    : [[], []];
+
+const [entrenamientos, participantes] = codigosEntrenamiento.length > 0
+  ? await Promise.all([
+      db
+        .select({ codigoEntrenamiento: entrenamiento.codigoEntrenamiento, cupoMaximo: entrenamiento.cupoMaximo })
+        .from(entrenamiento)
+        .where(inArray(entrenamiento.codigoEntrenamiento, codigosEntrenamiento)),
+
+      db
+        .select({ codigoEntrenamiento: usuarioEntrenamiento.codigoEntrenamiento })
+        .from(usuarioEntrenamiento)
+        .where(
+          and(
+            inArray(usuarioEntrenamiento.codigoEntrenamiento, codigosEntrenamiento),
+            eq(usuarioEntrenamiento.rol, "participante")
+          )
+        ),
+    ])
+  : [[], []];
 
   const cupoMap = Object.fromEntries(
     entrenamientos.map((e) => [

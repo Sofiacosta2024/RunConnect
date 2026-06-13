@@ -15,6 +15,7 @@ import {
   NotFoundError,
 } from "@/lib/api-errors";
 
+import { revalidatePath } from "next/cache";
 
 export async function crearSolicitud(
   email: string,
@@ -363,7 +364,7 @@ export async function aceptarSolicitud(
           sol.codigoEntrenamiento
         );
       } catch (e) { console.error("Error creando notificacion:", e); }
-
+      revalidatePath("/solicitudes");
     return {
       ok: true,
     };
