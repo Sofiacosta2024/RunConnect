@@ -55,12 +55,26 @@ function distanceLabel(km: number | null) {
   return `${km.toFixed(1)} km`;
 }
 
+function parsePointCoords(wkt: string | null): { lat: number; lng: number } | null {
+  if (!wkt) return null;
+  const normalized = wkt.trim().replace(/^SRID=\d+;\s*/i, "");
+  const match = normalized.match(/POINT\s*\(\s*([\-\d.]+)\s+([\-\d.]+)\s*\)/i);
+  if (!match) return null;
+  return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+}
+
+function buildGoogleMapsEmbedUrl(coords: { lat: number; lng: number }, apiKey: string) {
+  return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${coords.lat},${coords.lng}&zoom=15`;
+}
+
 export default function EntrenamientoCard({ entrenamiento, mostrarBotonSolicitud = false, esOrganizador = false, esParticipante = false }: Props) {
-const [loading, setLoading] = useState(false);
-const [enviada, setEnviada] = useState(false);
-const [finalizando, setFinalizando] = useState(false);
-const [showPopup, setShowPopup] = useState(false);
-const router = useRouter();
+  const coords = parsePointCoords(entrenamiento.puntoEncuentro);
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [loading, setLoading] = useState(false);
+  const [enviada, setEnviada] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const router = useRouter();
 
 async function solicitarParticipacion() {
   try {
@@ -199,6 +213,27 @@ async function handleFinalizar() {
           }
         />
       </div>
+
+      {coords && googleMapsApiKey ? (
+        <div
+          style={{
+            marginTop: 16,
+            borderRadius: 16,
+            overflow: "hidden",
+            border: "1px solid rgba(0, 0, 0, 0.08)",
+          }}
+        >
+          <iframe
+            title="Mapa del punto de encuentro"
+            width="100%"
+            height="240"
+            frameBorder="0"
+            style={{ border: 0, display: "block", minHeight: 240 }}
+            src={buildGoogleMapsEmbedUrl(coords, googleMapsApiKey)}
+            allowFullScreen
+          />
+        </div>
+      ) : null}
 
       {esFinalizado ? (
         puedeCalificar ? (
