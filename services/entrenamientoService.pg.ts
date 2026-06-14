@@ -84,6 +84,17 @@ function toNumberOrNull(value: string | number | null) {
 }
 
 function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
+  const now = new Date();
+  let estado = row.estado;
+
+  if (estado === "abierto" && new Date(row.fechaInicio) <= now) {
+    estado = "cerrado";
+  }
+
+  if (["abierto", "cerrado"].includes(estado) && new Date(row.fechaFin) <= now) {
+    estado = "finalizado";
+  }
+
   return {
     codigoEntrenamiento: Number(row.codigoEntrenamiento),
     emailOrganizador: row.emailOrganizador,
@@ -91,7 +102,7 @@ function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
     descripcionDeporte: row.descripcionDeporte,
     fechaInicio: row.fechaInicio,
     fechaFin: row.fechaFin,
-    estado: row.estado,
+    estado,
     puntoEncuentro: row.puntoEncuentro,
     distanciaEstimada: toNumberOrNull(row.distanciaEstimada),
     ritmoObjetivo: row.ritmoObjetivo,
@@ -260,6 +271,9 @@ function throwDatabaseUnavailable(error: unknown, operation: string): never {
 
 export async function getAll(pagina?: number, limite: number = 10) {
   try {
+    await cerrarVencidos();
+    await finalizarVencidos();
+
     const offset = pagina ? (pagina - 1) * limite : undefined;
 
     const countResult = await db
@@ -328,6 +342,9 @@ export async function getAll(pagina?: number, limite: number = 10) {
 
 export async function getFiltered(params: GetFilteredParams = {}, pagina?: number, limite: number = 10) {
   try {
+    await cerrarVencidos();
+    await finalizarVencidos();
+
     const conditions: ReturnType<typeof sql>[] = [
       sql`${entrenamiento.fechaInicio} > NOW()`,
     ];
@@ -429,6 +446,9 @@ export async function getById(codigoEntrenamiento: number) {
   }
 
   try {
+    await cerrarVencidos();
+    await finalizarVencidos();
+
     const rows = await db
       .select({
         codigoEntrenamiento: entrenamiento.codigoEntrenamiento,
@@ -712,10 +732,22 @@ export async function finalizar(codigoEntrenamiento: number, emailOrganizador: s
   }
 }
 
+export async function cerrarVencidos(): Promise<number> {
+  try {
+    const result = await db.execute(
+      sql`UPDATE "ENTRENAMIENTO" SET estado = 'cerrado' WHERE fecha_inicio < NOW() AND estado = 'abierto'`
+    );
+
+    return result.rowCount ?? 0;
+  } catch (error) {
+    throwDatabaseUnavailable(error, "cerrarVencidos");
+  }
+}
+
 export async function finalizarVencidos(): Promise<number> {
   try {
     const result = await db.execute(
-      sql`UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE fecha_fin < NOW() AND estado = 'abierto'`
+      sql`UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE fecha_fin < NOW() AND estado IN ('abierto', 'cerrado')`
     );
 
     return result.rowCount ?? 0;
@@ -755,6 +787,9 @@ export async function getMisEntrenamientos(
   totalPaginas: number;
 }> {
   try {
+    await cerrarVencidos();
+    await finalizarVencidos();
+
     const offset = pagina !== undefined ? (pagina - 1) * limite : undefined;
 
     const countOrganizados = await db

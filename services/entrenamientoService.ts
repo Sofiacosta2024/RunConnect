@@ -74,6 +74,11 @@ export async function getMisEntrenamientos(
     return service.getMisEntrenamientos(email, pagina, limite);
 }
 
+export async function cerrarVencidos() {
+    const service = await getService();
+    return service.cerrarVencidos();
+}
+
 export async function finalizarVencidos() {
     const service = await getService();
     return service.finalizarVencidos();

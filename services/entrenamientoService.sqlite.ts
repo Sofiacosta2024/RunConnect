@@ -82,6 +82,17 @@ function toNumberOrNull(value: number | null) {
 }
 
 function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
+  const now = new Date();
+  let estado = row.estado;
+
+  if (estado === "abierto" && new Date(row.fechaInicio) <= now) {
+    estado = "cerrado";
+  }
+
+  if (["abierto", "cerrado"].includes(estado) && new Date(row.fechaFin) <= now) {
+    estado = "finalizado";
+  }
+
   return {
     codigoEntrenamiento: Number(row.codigoEntrenamiento),
     emailOrganizador: row.emailOrganizador,
@@ -89,7 +100,7 @@ function mapEntrenamiento(row: EntrenamientoRow): EntrenamientoListItem {
     descripcionDeporte: row.descripcionDeporte,
     fechaInicio: row.fechaInicio,
     fechaFin: row.fechaFin,
-    estado: row.estado,
+    estado,
     puntoEncuentro: row.puntoEncuentro,
     distanciaEstimada: toNumberOrNull(row.distanciaEstimada),
     ritmoObjetivo: row.ritmoObjetivo,
@@ -246,6 +257,9 @@ function throwDatabaseUnavailable(error: unknown, operation: string): never {
 
 export async function getAll(pagina?: number, limite: number = 10) {
   try {
+    cerrarVencidos();
+    finalizarVencidos();
+
     const countRow = db
       .prepare(
         `
@@ -329,6 +343,9 @@ function parsePointCoords(wkt: string): { lat: number; lng: number } | null {
 
 export async function getFiltered(params: GetFilteredParams = {}, pagina?: number, limite: number = 10) {
   try {
+    cerrarVencidos();
+    finalizarVencidos();
+
     const conditions: string[] = ["e.fecha_inicio > datetime('now')"];
 
     if (params.codigoDeporte) {
@@ -426,6 +443,9 @@ export async function getById(codigoEntrenamiento: number) {
   }
 
   try {
+    cerrarVencidos();
+    finalizarVencidos();
+
     const row = db
       .prepare(
         `
@@ -613,11 +633,25 @@ export async function finalizar(codigoEntrenamiento: number, emailOrganizador: s
   }
 }
 
+export async function cerrarVencidos(): Promise<number> {
+  try {
+    const result = db
+      .prepare(
+        `UPDATE "ENTRENAMIENTO" SET estado = 'cerrado' WHERE fecha_inicio < datetime('now') AND estado = 'abierto'`
+      )
+      .run();
+
+    return result.changes ?? 0;
+  } catch (error) {
+    throwDatabaseUnavailable(error, "cerrarVencidos");
+  }
+}
+
 export async function finalizarVencidos(): Promise<number> {
   try {
     const result = db
       .prepare(
-        `UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE fecha_fin < datetime('now') AND estado = 'abierto'`
+        `UPDATE "ENTRENAMIENTO" SET estado = 'finalizado' WHERE fecha_fin < datetime('now') AND estado IN ('abierto', 'cerrado')`
       )
       .run();
 
@@ -774,6 +808,9 @@ export async function getMisEntrenamientos(
   totalPaginas: number;
 }> {
   try {
+    cerrarVencidos();
+    finalizarVencidos();
+
     const countOrgRow = db
       .prepare(
         `SELECT COUNT(*) AS total FROM "USUARIO_ENTRENAMIENTO" WHERE email = ? AND rol = ?`

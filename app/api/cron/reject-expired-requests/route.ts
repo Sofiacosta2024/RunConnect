@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as solicitudService from "@/services/solicitudService";
-import { finalizarVencidos } from "@/services/entrenamientoService";
+import { cerrarVencidos, finalizarVencidos } from "@/services/entrenamientoService";
 
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -14,14 +14,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const [rechazadas, finalizadas] = await Promise.all([
+  const [rechazadas, cerradas, finalizadas] = await Promise.all([
     solicitudService.rechazarSolicitudesExpiradas(),
+    cerrarVencidos(),
     finalizarVencidos(),
   ]);
 
   return NextResponse.json({
     ok: true,
     rechazadas,
+    cerradas,
     finalizadas,
   });
 }
