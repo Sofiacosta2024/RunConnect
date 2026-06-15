@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, and, eq, count, sql } from "drizzle-orm";
+import { desc, asc, and, eq, count, sql } from "drizzle-orm";
 import { crearNotificacion } from "@/services/notificacionService";
 import { db } from "@/lib/db";
 import {
@@ -565,7 +565,7 @@ export async function getMisSolicitudes(
     )
     .where(eq(solicitud.email, email))
     .orderBy(
-      asc(entrenamiento.fechaInicio)
+      desc(solicitud.fecha)
     );
 
   const rows =
