@@ -32,7 +32,7 @@ export default function NotificacionesPage() {
   async function cargarNotificaciones(p: number) {
     setCargando(true);
     try {
-      const res = await fetch(`/api/notificaciones?pagina=${p}&limite=${LIMITE}`);
+      const res = await fetch(`/api/notifications?pagina=${p}&limite=${LIMITE}`);
       if (!res.ok) {
         if (res.status === 401) router.push("/login");
         return;
@@ -49,7 +49,7 @@ export default function NotificacionesPage() {
   }
 
   async function marcarLeida(id: number) {
-    await fetch(`/api/notificaciones/${id}`, { method: "PATCH" });
+    await fetch(`/api/notifications/${id}`, { method: "PATCH" });
     setNotificaciones((prev) =>
       prev.map((n) =>
         n.codigoNotificacion === id ? { ...n, leida: 1 } : n
@@ -58,7 +58,7 @@ export default function NotificacionesPage() {
   }
 
   async function marcarTodasLeidas() {
-    await fetch("/api/notificaciones", { method: "PATCH" });
+    await fetch("/api/notifications", { method: "PATCH" });
     setNotificaciones((prev) =>
       prev.map((n) => ({ ...n, leida: 1 }))
     );

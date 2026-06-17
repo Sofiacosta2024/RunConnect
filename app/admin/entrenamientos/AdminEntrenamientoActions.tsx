@@ -12,7 +12,7 @@ export default function AdminEntrenamientoActions({ id }: { id: number }) {
 
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/entrenamientos/${id}`, {
+      const res = await fetch(`/api/admin/trainings/${id}`, {
         method: "DELETE",
       });
 

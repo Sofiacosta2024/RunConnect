@@ -56,7 +56,7 @@ export default function Navbar() {
     if (!session) return;
     const cargarNoLeidas = async () => {
       try {
-        const res = await fetch("/api/notificaciones");
+        const res = await fetch("/api/notifications");
         if (res.ok) {
           const data = await res.json();
           setNoLeidas(data.noLeidas ?? 0);

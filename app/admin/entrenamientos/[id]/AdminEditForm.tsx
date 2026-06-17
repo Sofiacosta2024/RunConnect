@@ -145,7 +145,7 @@ export default function AdminEditForm({
         body.cupoMaximo = Number(form.cupoMaximo);
       }
 
-      const res = await fetch(`/api/admin/entrenamientos/${entrenamiento.codigoEntrenamiento}`, {
+      const res = await fetch(`/api/admin/trainings/${entrenamiento.codigoEntrenamiento}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
