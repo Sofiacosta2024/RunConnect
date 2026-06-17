@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { PerfilData } from "./actions";
-import { actualizarPerfil } from "./actions";
 import Navbar from "../components/Navbar";
 
 const ICONOS_DEPORTE: Record<string, string> = {
-  running: "🏃", cycling: "🚴"
+  running: "🏃",
+  cycling: "🚴",
 };
 
 const DEPORTES = [
@@ -35,14 +34,26 @@ function EstrellasPromedio({ promedio }: { promedio: number }) {
   );
 }
 
-type Props = { perfil: PerfilData };
+type PerfilData = {
+  email: string;
+  fullName: string;
+  profilePicture: string | null;
+  preferredSport: string | null;
+  ubicacionDisplay: string | null;
+  averageRating: number | null;
+  ratingsCount: number;
+  trainingsOrganized: number;
+  trainingsParticipated: number;
+};
 
-export default function PerfilClient({ perfil }: Props) {
+type Props = { perfil: PerfilData; email: string };
+
+export default function PerfilClient({ perfil, email }: Props) {
   const router = useRouter();
-  const icono = perfil.codigoDeporte ? (ICONOS_DEPORTE[perfil.codigoDeporte] ?? "🏅") : null;
+  const icono = perfil.preferredSport ? (ICONOS_DEPORTE[perfil.preferredSport] ?? "🏅") : null;
 
-  const [editando, setEditando] = useState(!perfil.codigoDeporte || !perfil.ubicacion);
-  const [deporte, setDeporte] = useState(perfil.codigoDeporte ?? "");
+  const [editando, setEditando] = useState(!perfil.preferredSport || !perfil.ubicacionDisplay);
+  const [deporte, setDeporte] = useState(perfil.preferredSport ?? "");
   const [ubicacion, setUbicacion] = useState(perfil.ubicacionDisplay ?? "");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -53,10 +64,23 @@ export default function PerfilClient({ perfil }: Props) {
     setExito(false);
     startTransition(async () => {
       try {
-        await actualizarPerfil({
-          ubicacion: ubicacion || null,
-          codigoDeporte: deporte || null,
+        const emailEnc = encodeURIComponent(email);
+        const res = await fetch(`/api/usuarios/${emailEnc}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            preferredSport: deporte || null,
+            location: ubicacion || null,
+          }),
         });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(
+            data.code === "LOCATION_NOT_FOUND"
+              ? "No se encontró la dirección. Intentá ser más específico."
+              : "No se pudo guardar el perfil."
+          );
+        }
         setExito(true);
         setEditando(false);
         router.refresh();
@@ -74,31 +98,27 @@ export default function PerfilClient({ perfil }: Props) {
         {/* Hero del perfil */}
         <div className="rc-card" style={{ padding: "2rem 1.5rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
           <div className="rc-avatar" style={{ width: 72, height: 72, fontSize: "1.8rem", fontWeight: 700, flexShrink: 0 }}>
-            {perfil.fotoPerfil
-              ? <img src={perfil.fotoPerfil} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} alt={perfil.nombre} />
-              : perfil.nombre[0].toUpperCase()}
+            {perfil.profilePicture
+              ? <img src={perfil.profilePicture} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} alt={perfil.fullName} />
+              : perfil.fullName[0].toUpperCase()}
           </div>
-
           <div style={{ textAlign: "center" }}>
-            <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>{perfil.nombre}</h1>
+            <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>{perfil.fullName}</h1>
             <p style={{ fontSize: "0.85rem", color: "var(--rc-muted)", margin: "0.2rem 0 0" }}>{perfil.email}</p>
           </div>
-
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
-            {perfil.codigoDeporte && (
+            {perfil.preferredSport && (
               <span style={{ fontSize: "0.75rem", padding: "4px 12px", borderRadius: 999, background: "var(--rc-surface)", border: "1px solid var(--rc-border)", display: "flex", alignItems: "center", gap: "0.3rem", textTransform: "capitalize" }}>
-                {icono} {perfil.codigoDeporte}
+                {icono} {perfil.preferredSport}
               </span>
             )}
             {perfil.ubicacionDisplay && (
               <span style={{ fontSize: "0.75rem", padding: "4px 12px", borderRadius: 999, background: "var(--rc-surface)", border: "1px solid var(--rc-border)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                {perfil.ubicacionDisplay}
+                📍 {perfil.ubicacionDisplay}
               </span>
             )}
-            {!perfil.codigoDeporte && !perfil.ubicacion && (
-              <span style={{ fontSize: "0.75rem", color: "var(--rc-muted)" }}>
-                Sin deporte ni ubicación configurados
-              </span>
+            {!perfil.preferredSport && !perfil.ubicacionDisplay && (
+              <span style={{ fontSize: "0.75rem", color: "var(--rc-muted)" }}>Sin deporte ni ubicación configurados</span>
             )}
           </div>
         </div>
@@ -123,67 +143,44 @@ export default function PerfilClient({ perfil }: Props) {
           {editando ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--rc-muted)" }}>
-                  Deporte preferido
-                </label>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--rc-muted)" }}>Deporte preferido</label>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   {DEPORTES.map((d) => (
-                    <button
-                      key={d.codigo}
-                      type="button"
-                      onClick={() => setDeporte(d.codigo)}
-                      disabled={isPending}
+                    <button key={d.codigo} type="button" onClick={() => setDeporte(d.codigo)} disabled={isPending}
                       className={deporte === d.codigo ? "rc-btn-primary" : "rc-btn-secondary"}
-                      style={{ flex: 1, padding: "0.6rem", borderRadius: 8, fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
-                    >
+                      style={{ flex: 1, padding: "0.6rem", borderRadius: 8, fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}>
                       <span>{d.icono}</span> {d.label}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--rc-muted)" }}>
-                  Ubicación
-                </label>
-                <input
-                  type="text"
-                  value={ubicacion}
-                  onChange={(ev) => setUbicacion(ev.target.value)}
-                  disabled={isPending}
-                  placeholder="Ej: Bahía Blanca, Buenos Aires"
-                  className="rc-input"
-                  style={{ padding: "0.6rem 0.8rem", borderRadius: 8, fontSize: "0.85rem", background: "var(--rc-surface)", border: "1px solid var(--rc-border)", color: "inherit" }}
-                />
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--rc-muted)" }}>Ubicación</label>
+                <input type="text" value={ubicacion} onChange={(ev) => setUbicacion(ev.target.value)} disabled={isPending}
+                  placeholder="Ej: Bahía Blanca, Buenos Aires" className="rc-input"
+                  style={{ padding: "0.6rem 0.8rem", borderRadius: 8, fontSize: "0.85rem", background: "var(--rc-surface)", border: "1px solid var(--rc-border)", color: "inherit" }} />
               </div>
-
               {error && (
                 <div style={{ fontSize: "0.8rem", color: "var(--rc-error, #dc2626)", background: "var(--rc-error-bg, #fee2e2)", padding: "0.6rem 0.8rem", borderRadius: 8 }}>
                   ⚠️ {error}
                 </div>
               )}
-
               <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  className="rc-btn-primary"
+                <button className="rc-btn-primary"
                   style={{ flex: 1, padding: "0.65rem", borderRadius: 8, fontSize: "0.85rem" }}
-                  onClick={guardar}
-                  disabled={isPending || !deporte || !ubicacion.trim()}
-                >
+                  onClick={guardar} disabled={isPending || !deporte || !ubicacion.trim()}>
                   {isPending ? "Guardando..." : "Guardar"}
                 </button>
-                {perfil.codigoDeporte && perfil.ubicacion && (
-                  <button
-                    className="rc-btn-secondary"
+                {(perfil.preferredSport || perfil.ubicacionDisplay) && (
+                  <button className="rc-btn-secondary"
                     style={{ padding: "0.65rem 1rem", borderRadius: 8, fontSize: "0.85rem" }}
                     onClick={() => {
-                      setDeporte(perfil.codigoDeporte ?? "");
+                      setDeporte(perfil.preferredSport ?? "");
                       setUbicacion(perfil.ubicacionDisplay ?? "");
                       setError(null);
                       setEditando(false);
                     }}
-                    disabled={isPending}
-                  >
+                    disabled={isPending}>
                     Cancelar
                   </button>
                 )}
@@ -193,16 +190,16 @@ export default function PerfilClient({ perfil }: Props) {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
               <p style={{ margin: 0 }}>
                 <span style={{ color: "var(--rc-muted)" }}>Deporte: </span>
-                <span style={{ textTransform: "capitalize" }}>{icono} {perfil.codigoDeporte}</span>
+                <span style={{ textTransform: "capitalize" }}>{icono} {perfil.preferredSport}</span>
               </p>
-              <p style={{ margin: 0 }}>
-                <span style={{ color: "var(--rc-muted)" }}>Ubicación: </span>
-                 {perfil.ubicacionDisplay}
-              </p>
-              {exito && (
-                <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "green" }}>
-                  ✓ Perfil actualizado
+              {perfil.ubicacionDisplay && (
+                <p style={{ margin: 0 }}>
+                  <span style={{ color: "var(--rc-muted)" }}>Ubicación: </span>
+                  {perfil.ubicacionDisplay}
                 </p>
+              )}
+              {exito && (
+                <p style={{ margin: "0.3rem 0 0", fontSize: "0.75rem", color: "green" }}>✓ Perfil actualizado</p>
               )}
             </div>
           )}
@@ -213,16 +210,15 @@ export default function PerfilClient({ perfil }: Props) {
           <p style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--rc-muted)", margin: "0 0 1rem" }}>
             Puntuación recibida
           </p>
-
-          {perfil.promedioCalificacion !== null ? (
+          {perfil.averageRating !== null ? (
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
               <span style={{ fontSize: "3rem", fontWeight: 800, color: "var(--rc-accent)", lineHeight: 1 }}>
-                {perfil.promedioCalificacion.toFixed(1)}
+                {perfil.averageRating.toFixed(1)}
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                <EstrellasPromedio promedio={perfil.promedioCalificacion} />
+                <EstrellasPromedio promedio={perfil.averageRating} />
                 <span style={{ fontSize: "0.75rem", color: "var(--rc-muted)" }}>
-                  basado en {perfil.cantidadCalificaciones} calificación{perfil.cantidadCalificaciones !== 1 ? "es" : ""}
+                  basado en {perfil.ratingsCount} calificación{perfil.ratingsCount !== 1 ? "es" : ""}
                 </span>
               </div>
             </div>
@@ -242,12 +238,11 @@ export default function PerfilClient({ perfil }: Props) {
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
           {[
-            { icon: "", value: perfil.cantidadCalificaciones, label: "Calificaciones" },
-            { icon: "", value: perfil.entrenamientosOrganizados, label: "Organizados" },
-            { icon: "", value: perfil.entrenamientosParticipados, label: "Participados" },
-          ].map(({ icon, value, label }) => (
+            { value: perfil.ratingsCount, label: "Calificaciones" },
+            { value: perfil.trainingsOrganized, label: "Organizados" },
+            { value: perfil.trainingsParticipated, label: "Participados" },
+          ].map(({ value, label }) => (
             <div key={label} className="rc-card" style={{ padding: "1.25rem 0.75rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", background: "var(--rc-surface)" }}>
-              <span style={{ fontSize: "1.3rem" }}>{icon}</span>
               <span style={{ fontSize: "1.5rem", fontWeight: 800, lineHeight: 1 }}>{value}</span>
               <span style={{ fontSize: "0.7rem", color: "var(--rc-muted)", textAlign: "center" }}>{label}</span>
             </div>
