@@ -667,16 +667,39 @@ export async function remove(codigoEntrenamiento: number) {
   }
 
   try {
-    const result = db
-      .prepare(
-        'DELETE FROM "ENTRENAMIENTO" WHERE codigo_entrenamiento = ?'
-      )
-      .run(codigoEntrenamiento);
+    const transaction = db.transaction(() => {
+      db.prepare(
+        'DELETE FROM "MENSAJE" WHERE codigo_entrenamiento = ?'
+      ).run(codigoEntrenamiento);
 
-    if (result.changes === 0) {
-      throw new NotFoundError("Entrenamiento no encontrado.");
-    }
+      db.prepare(
+        'DELETE FROM "USUARIO_ENTRENAMIENTO" WHERE codigo_entrenamiento = ?'
+      ).run(codigoEntrenamiento);
 
+      db.prepare(
+        'DELETE FROM "SOLICITUD" WHERE codigo_entrenamiento = ?'
+      ).run(codigoEntrenamiento);
+
+      db.prepare(
+        'DELETE FROM "GRUPO_SOLICITUD" WHERE codigo_entrenamiento = ?'
+      ).run(codigoEntrenamiento);
+
+      db.prepare(
+        'DELETE FROM "NOTIFICACION" WHERE codigo_entrenamiento = ?'
+      ).run(codigoEntrenamiento);
+
+      const result = db
+        .prepare(
+          'DELETE FROM "ENTRENAMIENTO" WHERE codigo_entrenamiento = ?'
+        )
+        .run(codigoEntrenamiento);
+
+      if (result.changes === 0) {
+        throw new NotFoundError("Entrenamiento no encontrado.");
+      }
+    });
+
+    transaction();
     return { deleted: true, codigoEntrenamiento };
   } catch (error) {
     if (error instanceof NotFoundError) throw error;

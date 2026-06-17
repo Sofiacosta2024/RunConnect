@@ -761,12 +761,32 @@ export async function remove(codigoEntrenamiento: number) {
     throw new ValidationError("codigoEntrenamiento debe ser un entero positivo.");
   }
   try {
-    const delResult = await db.execute(
-      sql`DELETE FROM "ENTRENAMIENTO" WHERE codigo_entrenamiento = ${codigoEntrenamiento} RETURNING codigo_entrenamiento`
-    );
-    if (!delResult.rows || delResult.rows.length === 0) {
-      throw new NotFoundError("Entrenamiento no encontrado.");
-    }
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`DELETE FROM "CALIFICACION" WHERE codigo_entrenamiento1 = ${codigoEntrenamiento} OR codigo_entrenamiento2 = ${codigoEntrenamiento}`
+      );
+      await tx.execute(
+        sql`DELETE FROM "MENSAJE" WHERE codigo_entrenamiento = ${codigoEntrenamiento}`
+      );
+      await tx.execute(
+        sql`DELETE FROM "USUARIO_ENTRENAMIENTO" WHERE codigo_entrenamiento = ${codigoEntrenamiento}`
+      );
+      await tx.execute(
+        sql`DELETE FROM "SOLICITUD" WHERE codigo_entrenamiento = ${codigoEntrenamiento}`
+      );
+      await tx.execute(
+        sql`DELETE FROM "GRUPO_SOLICITUD" WHERE codigo_entrenamiento = ${codigoEntrenamiento}`
+      );
+      await tx.execute(
+        sql`DELETE FROM "NOTIFICACION" WHERE codigo_entrenamiento = ${codigoEntrenamiento}`
+      );
+      const delResult = await tx.execute(
+        sql`DELETE FROM "ENTRENAMIENTO" WHERE codigo_entrenamiento = ${codigoEntrenamiento} RETURNING codigo_entrenamiento`
+      );
+      if (!delResult.rows || delResult.rows.length === 0) {
+        throw new NotFoundError("Entrenamiento no encontrado.");
+      }
+    });
     return { deleted: true, codigoEntrenamiento };
   } catch (error) {
     if (error instanceof NotFoundError) throw error;
